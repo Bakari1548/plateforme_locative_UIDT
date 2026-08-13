@@ -1,0 +1,52 @@
+# Dependencies
+/vendor/
+/node_modules/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Database
+*.sqlite
+*.sqlite3
+backend/database/*.db
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+frontend/dist/
+frontend/build/
+
+# Uploads
+backend/public/uploads/
+backend/public/temp/
+
+# Cache
+.cache/
+*.cache
+
+# Testing
+/coverage/
+.phpunit.result.cache
+
+# Composer
+composer.lock
+
+# Package manager
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
