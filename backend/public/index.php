@@ -51,5 +51,31 @@ $router->get('/api/health', function() use ($router) {
 // API routes
 require_once __DIR__ . '/../routes/api.php';
 
+// Serve uploaded files statically
+$uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$basePath = dirname($_SERVER['SCRIPT_NAME']);
+if ($basePath !== '/' && strpos($uri, $basePath) === 0) {
+    $uri = substr($uri, strlen($basePath));
+}
+if (strpos($uri, '/uploads/') === 0) {
+    $filePath = __DIR__ . '/../..' . $uri;
+    if (file_exists($filePath)) {
+        $mimeTypes = [
+            'pdf' => 'application/pdf',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'webp' => 'image/webp',
+        ];
+        $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+        header('Content-Type: ' . ($mimeTypes[$ext] ?? 'application/octet-stream'));
+        readfile($filePath);
+        exit;
+    }
+    http_response_code(404);
+    echo 'File not found';
+    exit;
+}
+
 // Dispatch the router
 $router->dispatch();

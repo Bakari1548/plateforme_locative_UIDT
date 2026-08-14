@@ -8,7 +8,7 @@ use App\Config\JWTConfig;
 
 class AuthMiddleware extends Middleware
 {
-    private ?array $payload = null;
+    private ?object $payload = null;
 
     public function handle(): bool
     {
@@ -37,12 +37,12 @@ class AuthMiddleware extends Middleware
 
     public function getUserId(): ?int
     {
-        return $this->payload['user_id'] ?? null;
+        return $this->payload->user_id ?? null;
     }
 
     public function getUserRole(): ?string
     {
-        return $this->payload['role'] ?? null;
+        return $this->payload->role ?? null;
     }
 
     public function getPayload(): ?array

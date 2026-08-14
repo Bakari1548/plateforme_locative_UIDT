@@ -61,9 +61,9 @@ class Document extends Model
         return $stmt->execute($params);
     }
 
-    public function updateCloudinaryUrl(int $id, string $url, int $taille, string $mimeType): bool
+    public function updateFileUrl(int $id, string $url, int $taille, string $mimeType): bool
     {
-        $sql = "UPDATE {$this->table} SET url_cloudinary = :url, taille = :taille, mime_type = :mime_type WHERE id = :id";
+        $sql = "UPDATE {$this->table} SET url_fichier = :url, taille = :taille, mime_type = :mime_type WHERE id = :id";
         $stmt = $this->db->prepare($sql);
         return $stmt->execute(['url' => $url, 'taille' => $taille, 'mime_type' => $mimeType, 'id' => $id]);
     }
@@ -81,7 +81,7 @@ class Document extends Model
 
     public function checkDemandeCompleteness(int $demandeId): array
     {
-        $requiredTypes = ['cni', 'casier_judiciaire', 'attestation_residence'];
+        $requiredTypes = ['cni'];
         $sql = "SELECT type_document, statut FROM {$this->table} WHERE demande_id = :demande_id";
         $stmt = $this->db->prepare($sql);
         $stmt->execute(['demande_id' => $demandeId]);
@@ -104,10 +104,7 @@ class Document extends Model
         }
 
         foreach ($documents as $doc) {
-            if ($doc['statut'] === 'en_attente') {
-                $result['pending'][] = $doc['type_document'];
-                $result['complete'] = false;
-            } elseif ($doc['statut'] === 'refuse') {
+            if ($doc['statut'] === 'refuse') {
                 $result['rejected'][] = $doc['type_document'];
                 $result['complete'] = false;
             }

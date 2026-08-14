@@ -1,0 +1,227 @@
+import { useState, useEffect } from 'react'
+import { api } from '../../lib/api'
+import { Building2, Plus, Edit, Trash2, Search, X, ArrowRightLeft } from 'lucide-react'
+
+const TYPES = ['cantine', 'boutique', 'kiosque', 'bureau', 'autre']
+const STATUTS = ['disponible', 'occupe', 'en_maintenance', 'reserve', 'inactif']
+
+const STATUT_COLORS = {
+  disponible: 'bg-green-100 text-secondary-600',
+  occupe: 'bg-blue-100 text-blue-700',
+  en_maintenance: 'bg-yellow-100 text-yellow-700',
+  reserve: 'bg-purple-100 text-purple-700',
+  inactif: 'bg-accent-lighter text-accent-slate'
+}
+
+export default function GestionLocaux() {
+  const [locaux, setLocaux] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterStatut, setFilterStatut] = useState('')
+  const [showModal, setShowModal] = useState(false)
+  const [editingLocal, setEditingLocal] = useState(null)
+  const [formData, setFormData] = useState({
+    reference: '', type: 'cantine', usage: '', statut: 'disponible',
+    zone: '', surface: '', description: ''
+  })
+
+  useEffect(() => { loadLocaux() }, [])
+
+  async function loadLocaux() {
+    setLoading(true)
+    const result = await api.locaux.list()
+    if (result.error) { setError(result.error) }
+    else { setLocaux(result.locaux || []) }
+    setLoading(false)
+  }
+
+  async function handleSearch(e) {
+    e.preventDefault()
+    if (!searchQuery.trim()) { loadLocaux(); return }
+    setLoading(true)
+    const result = await api.locaux.search(searchQuery)
+    if (result.error) { setError(result.error) }
+    else { setLocaux(result.locaux || []) }
+    setLoading(false)
+  }
+
+  function openModal(local = null) {
+    if (local) {
+      setEditingLocal(local)
+      setFormData({
+        reference: local.reference || '', type: local.type || 'cantine',
+        usage: local.usage || '', statut: local.statut || 'disponible',
+        zone: local.zone || '', surface: local.surface || '', description: local.description || ''
+      })
+    } else {
+      setEditingLocal(null)
+      setFormData({ reference: '', type: 'cantine', usage: '', statut: 'disponible', zone: '', surface: '', description: '' })
+    }
+    setShowModal(true)
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError('')
+    let result
+    if (editingLocal) {
+      result = await api.locaux.update(editingLocal.id, formData)
+    } else {
+      result = await api.locaux.create(formData)
+    }
+    if (result.error) { setError(result.error) }
+    else { setShowModal(false); loadLocaux() }
+  }
+
+  async function handleDelete(id) {
+    if (!confirm('Supprimer ce local ?')) return
+    const result = await api.locaux.delete(id)
+    if (result.error) { setError(result.error) }
+    else { loadLocaux() }
+  }
+
+  async function handleStatutChange(id, statut) {
+    const result = await api.locaux.updateStatut(id, statut)
+    if (result.error) { setError(result.error) }
+    else { loadLocaux() }
+  }
+
+  const filteredLocaux = filterStatut ? locaux.filter(l => l.statut === filterStatut) : locaux
+
+  return (
+    <div>
+      <h1 className="text-2xl font-extrabold text-accent-dark mb-1">Gestion des locaux</h1>
+      <p className="text-sm text-accent-slate mb-6">Référentiel des locaux</p>
+
+        {error && <div className="mb-4 bg-red-50 border border-red-200 text-accent-red px-4 py-3 rounded-lg">{error}</div>}
+
+        <div className="mb-6 flex gap-2">
+          <form onSubmit={handleSearch} className="flex-1 flex gap-2">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-accent-slate" />
+              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Rechercher par référence, zone..."
+                className="w-full pl-10 pr-4 py-2 border border-accent-light rounded-lg focus:outline-none focus:ring-primary-500" />
+            </div>
+            <button type="submit" className="px-4 py-2 bg-accent-dark text-white rounded-lg hover:bg-accent-slate">Rechercher</button>
+          </form>
+          <select value={filterStatut} onChange={(e) => setFilterStatut(e.target.value)}
+            className="border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500">
+            <option value="">Tous statuts</option>
+            {STATUTS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+
+        {loading ? (
+          <div className="bg-white shadow-sm rounded-lg p-8 text-center text-accent-slate">Chargement...</div>
+        ) : filteredLocaux.length === 0 ? (
+          <div className="bg-white shadow-sm rounded-lg p-8 text-center">
+            <Building2 className="h-12 w-12 text-accent-light mx-auto mb-3" />
+            <p className="text-accent-slate">Aucun local trouvé</p>
+          </div>
+        ) : (
+          <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+            <table className="min-w-full divide-y divide-accent-light">
+              <thead className="bg-accent-lighter">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-accent-slate uppercase">Référence</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-accent-slate uppercase">Type</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-accent-slate uppercase">Usage</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-accent-slate uppercase">Zone</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-accent-slate uppercase">Surface</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-accent-slate uppercase">Statut</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-accent-slate uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-accent-light">
+                {filteredLocaux.map((local) => (
+                  <tr key={local.id} className="hover:bg-accent-lighter">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-accent-dark">{local.reference}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-accent-dark">{local.type}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-accent-dark">{local.usage || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-accent-dark">{local.zone || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-accent-dark">{local.surface ? `${local.surface} m²` : '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <select value={local.statut} onChange={(e) => handleStatutChange(local.id, e.target.value)}
+                        className={`text-sm rounded-lg border-0 focus:outline-none focus:ring-primary-500 ${STATUT_COLORS[local.statut] || ''}`}>
+                        {STATUTS.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button onClick={() => openModal(local)} className="text-primary-700 hover:text-primary-800 mr-3">
+                        <Edit className="h-4 w-4 inline" />
+                      </button>
+                      <button onClick={() => handleDelete(local.id)} className="text-accent-red hover:text-accent-red">
+                        <Trash2 className="h-4 w-4 inline" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+      {showModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-accent-light">
+              <h2 className="text-lg font-semibold">{editingLocal ? 'Modifier local' : 'Nouveau local'}</h2>
+              <button onClick={() => setShowModal(false)}><X className="h-5 w-5 text-accent-slate" /></button>
+            </div>
+            <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-accent-slate">Référence *</label>
+                <input type="text" required value={formData.reference} onChange={(e) => setFormData({...formData, reference: e.target.value})}
+                  className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-accent-slate">Type *</label>
+                  <select value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})}
+                    className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500">
+                    {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-accent-slate">Statut</label>
+                  <select value={formData.statut} onChange={(e) => setFormData({...formData, statut: e.target.value})}
+                    className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500">
+                    {STATUTS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-accent-slate">Usage *</label>
+                <input type="text" required value={formData.usage} onChange={(e) => setFormData({...formData, usage: e.target.value})}
+                  className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-accent-slate">Zone</label>
+                  <input type="text" value={formData.zone} onChange={(e) => setFormData({...formData, zone: e.target.value})}
+                    className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-accent-slate">Surface (m²)</label>
+                  <input type="number" step="0.01" value={formData.surface} onChange={(e) => setFormData({...formData, surface: e.target.value})}
+                    className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-accent-slate">Description</label>
+                <textarea rows={3} value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500" />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-accent-slate border border-accent-light rounded-lg hover:bg-accent-lighter">Annuler</button>
+                <button type="submit" className="px-4 py-2 bg-primary-700 text-white rounded-lg hover:bg-primary-800">{editingLocal ? 'Modifier' : 'Créer'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

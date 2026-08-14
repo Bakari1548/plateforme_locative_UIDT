@@ -37,6 +37,11 @@ class Router
         $this->add('DELETE', $path, $handler);
     }
 
+    public function patch(string $path, callable $handler): void
+    {
+        $this->add('PATCH', $path, $handler);
+    }
+
     public function middleware(callable $middleware): self
     {
         $this->middlewares[] = $middleware;

@@ -115,6 +115,26 @@ class Demande extends Model
         return $this->db->query($sql)->fetchAll();
     }
 
+    public function getRecevables(): array
+    {
+        $sql = "SELECT d.*, u.prenom, u.nom, u.email
+                FROM {$this->table} d
+                LEFT JOIN utilisateurs u ON d.user_id = u.id
+                WHERE d.statut = 'recevable' 
+                ORDER BY d.updated_at ASC";
+        return $this->db->query($sql)->fetchAll();
+    }
+
+    public function getDecided(): array
+    {
+        $sql = "SELECT d.*, u.prenom, u.nom, u.email
+                FROM {$this->table} d
+                LEFT JOIN utilisateurs u ON d.user_id = u.id
+                WHERE d.statut IN ('attribue', 'non_attribue', 'rejete')
+                ORDER BY d.date_decision DESC";
+        return $this->db->query($sql)->fetchAll();
+    }
+
     public function getInCommission(): array
     {
         $sql = "SELECT * FROM {$this->table} WHERE statut = 'en_commission' ORDER BY date_instruction ASC";

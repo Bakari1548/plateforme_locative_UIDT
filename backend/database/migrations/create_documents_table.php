@@ -1,6 +1,6 @@
 <?php
 
-require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../../config/database.php';
 
 try {
     $db = App\Config\Database::getInstance();
@@ -10,7 +10,7 @@ try {
         demande_id INTEGER NOT NULL,
         type_document TEXT NOT NULL,
         nom_fichier TEXT NOT NULL,
-        url_cloudinary TEXT,
+        url_fichier TEXT,
         taille INTEGER,
         mime_type TEXT,
         statut TEXT NOT NULL DEFAULT 'en_attente',

@@ -46,7 +46,7 @@ plateforme_locative_UIDT/
 - **SQLite** - Base de données
 - **Architecture MVC** - Structure personnalisée
 - **JWT (firebase/php-jwt)** - Authentification
-- **Cloudinary** - Stockage documents
+- **Stockage local** - Upload de documents dans `/uploads`
 - **PHPMailer** - Envoi emails
 
 ### Frontend
@@ -110,11 +110,6 @@ DB_PATH=backend/database/croust.db
 JWT_SECRET=votre_secret_jwt_ici
 JWT_EXPIRATION=86400
 
-# Cloudinary
-CLOUDINARY_CLOUD_NAME=votre_cloud_name
-CLOUDINARY_API_KEY=votre_api_key
-CLOUDINARY_API_SECRET=votre_api_secret
-
 # Email (SMTP)
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
@@ -135,7 +130,6 @@ Les fichiers de configuration se trouvent dans `backend/config/` :
 - `jwt.php` - Configuration JWT
 - `roles.php` - Définition des rôles et permissions RACI
 - `email.php` - Configuration SMTP
-- `cloudinary.php` - Configuration Cloudinary
 
 ### Configuration Frontend
 
@@ -143,7 +137,6 @@ Créer `frontend/src/lib/config.js` :
 
 ```javascript
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-export const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 ```
 
 ## 🚀 Développement

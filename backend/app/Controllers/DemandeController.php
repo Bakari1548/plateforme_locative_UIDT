@@ -231,6 +231,28 @@ class DemandeController
         ];
     }
 
+    public function getRecevables(): array
+    {
+        $demandes = $this->demandeModel->getRecevables();
+        
+        return [
+            'success' => true,
+            'demandes' => $demandes,
+            'count' => count($demandes)
+        ];
+    }
+
+    public function getDecided(): array
+    {
+        $demandes = $this->demandeModel->getDecided();
+        
+        return [
+            'success' => true,
+            'demandes' => $demandes,
+            'count' => count($demandes)
+        ];
+    }
+
     public function getStats(): array
     {
         $stats = $this->demandeModel->getStats();
@@ -238,6 +260,112 @@ class DemandeController
         return [
             'success' => true,
             'stats' => $stats
+        ];
+    }
+
+    public function uploadDocument(int $demandeId, int $userId, array $files, array $post): array
+    {
+        $demande = $this->demandeModel->find($demandeId);
+
+        if (!$demande) {
+            return ['error' => 'Demande non trouvée'];
+        }
+
+        if ($demande['user_id'] !== $userId) {
+            return ['error' => 'Non autorisé'];
+        }
+
+        if ($demande['statut'] !== 'brouillon') {
+            return ['error' => 'Impossible d\'ajouter des documents à une demande soumise'];
+        }
+
+        $typeDocument = $post['type_document'] ?? null;
+        $validTypes = ['cni', 'casier_judiciaire', 'attestation_residence', 'plan_affaires', 'autre'];
+
+        if (!$typeDocument || !in_array($typeDocument, $validTypes)) {
+            return ['error' => 'Type de document invalide'];
+        }
+
+        if (!isset($files['file']) || $files['file']['error'] !== UPLOAD_ERR_OK) {
+            return ['error' => 'Aucun fichier reçu ou erreur lors de l\'upload'];
+        }
+
+        $file = $files['file'];
+        $allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+
+        if (!in_array($file['type'], $allowedMimes)) {
+            return ['error' => 'Format de fichier non autorisé. Formats acceptés: PDF, JPG, PNG, WebP'];
+        }
+
+        $maxSize = 10 * 1024 * 1024; // 10 MB
+        if ($file['size'] > $maxSize) {
+            return ['error' => 'Le fichier ne doit pas dépasser 10 Mo'];
+        }
+
+        $uploadDir = __DIR__ . '/../../uploads/documents/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+        $safeName = $typeDocument . '_' . $demandeId . '_' . time() . '.' . $extension;
+        $targetPath = $uploadDir . $safeName;
+
+        if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
+            return ['error' => 'Erreur lors de l\'enregistrement du fichier'];
+        }
+
+        // Remove existing document of same type (replace)
+        $existing = $this->documentModel->findByType($typeDocument, $demandeId);
+        if ($existing) {
+            $oldPath = $uploadDir . $existing['nom_fichier'];
+            if (file_exists($oldPath)) {
+                unlink($oldPath);
+            }
+            $this->documentModel->delete($existing['id']);
+        }
+
+        $docData = [
+            'demande_id' => $demandeId,
+            'type_document' => $typeDocument,
+            'nom_fichier' => $safeName,
+            'url_fichier' => '/uploads/documents/' . $safeName,
+            'taille' => $file['size'],
+            'mime_type' => $file['type'],
+            'statut' => 'en_attente'
+        ];
+
+        try {
+            $docId = $this->documentModel->create($docData);
+            $document = $this->documentModel->find($docId);
+
+            return [
+                'success' => true,
+                'message' => 'Document téléversé avec succès',
+                'document' => $document
+            ];
+        } catch (\Exception $e) {
+            return ['error' => 'Erreur lors de l\'enregistrement: ' . $e->getMessage()];
+        }
+    }
+
+    public function getDocuments(int $demandeId, int $userId, string $userRole): array
+    {
+        $demande = $this->demandeModel->find($demandeId);
+
+        if (!$demande) {
+            return ['error' => 'Demande non trouvée'];
+        }
+
+        if ($userRole !== 'admin' && $userRole !== 'dcuv' && $demande['user_id'] !== $userId) {
+            return ['error' => 'Non autorisé'];
+        }
+
+        $documents = $this->documentModel->findByDemandeId($demandeId);
+
+        return [
+            'success' => true,
+            'documents' => $documents
         ];
     }
 }

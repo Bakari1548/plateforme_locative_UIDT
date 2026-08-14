@@ -7,9 +7,20 @@ class Database
     private static ?\PDO $instance = null;
     private static string $dbPath;
 
-    public static function init(string $dbPath = null): void
+    public static function init(?string $dbPath = null): void
     {
-        self::$dbPath = $dbPath ?? ($_ENV['DB_PATH'] ?? __DIR__ . '/../database/croust.db');
+        if ($dbPath !== null) {
+            self::$dbPath = $dbPath;
+        } elseif (isset($_ENV['DB_PATH']) && $_ENV['DB_PATH'] !== '') {
+            $envPath = $_ENV['DB_PATH'];
+            if ($envPath[0] === '/' || preg_match('#^[A-Za-z]:[\\\\/]#', $envPath)) {
+                self::$dbPath = $envPath;
+            } else {
+                self::$dbPath = __DIR__ . '/../../' . $envPath;
+            }
+        } else {
+            self::$dbPath = __DIR__ . '/../database/croust.db';
+        }
     }
 
     public static function getInstance(): \PDO
@@ -20,7 +31,7 @@ class Database
             }
 
             $dsn = 'sqlite:' . self::$dbPath;
-            
+
             self::$instance = new \PDO($dsn);
             self::$instance->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
             self::$instance->setAttribute(\PDO::ATTR_DEFAULT_FETCH_MODE, \PDO::FETCH_ASSOC);
