@@ -24,7 +24,12 @@ class Contrat extends Model
 
     public function findByLocataireId(int $locataireId): array
     {
-        $sql = "SELECT * FROM {$this->table} WHERE locataire_id = :locataire_id ORDER BY created_at DESC";
+        $sql = "SELECT ctr.*, d.numero_suivi, d.type_local,
+                l.reference as local_reference, l.type as local_type, l.zone, l.surface
+                FROM {$this->table} ctr
+                JOIN demandes d ON ctr.demande_id = d.id
+                LEFT JOIN locaux l ON ctr.local_id = l.id
+                WHERE ctr.locataire_id = :locataire_id ORDER BY ctr.created_at DESC";
         $stmt = $this->db->prepare($sql);
         $stmt->execute(['locataire_id' => $locataireId]);
         return $stmt->fetchAll();
@@ -57,7 +62,7 @@ class Contrat extends Model
 
     public function updateStatut(int $id, string $statut): bool
     {
-        $validStatuts = ['brouillon', 'en_attente_signature', 'signe', 'actif', 'resilie', 'expire'];
+        $validStatuts = ['brouillon', 'en_validation_directeur', 'en_attente_signature', 'signe', 'actif', 'resilie', 'expire'];
         if (!in_array($statut, $validStatuts)) {
             return false;
         }
@@ -143,5 +148,39 @@ class Contrat extends Model
         $sql = "UPDATE {$this->table} SET fichier_pdf = :path, updated_at = CURRENT_TIMESTAMP WHERE id = :id";
         $stmt = $this->db->prepare($sql);
         return $stmt->execute(['path' => $path, 'id' => $id]);
+    }
+
+    public function submitToDirecteur(int $id, string $fichierPath): bool
+    {
+        $sql = "UPDATE {$this->table} SET fichier_contrat = :path, statut = 'en_validation_directeur', updated_at = CURRENT_TIMESTAMP WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute(['path' => $fichierPath, 'id' => $id]);
+    }
+
+    public function validateByDirecteur(int $id, int $directeurId, string $decision, ?string $commentaire = null): bool
+    {
+        if ($decision === 'approuve') {
+            $sql = "UPDATE {$this->table} SET statut = 'actif', valide_par_directeur_id = :directeur_id, date_validation_directeur = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = :id";
+            $stmt = $this->db->prepare($sql);
+            return $stmt->execute(['directeur_id' => $directeurId, 'id' => $id]);
+        } else {
+            $sql = "UPDATE {$this->table} SET statut = 'brouillon', commentaire_directeur = :commentaire, updated_at = CURRENT_TIMESTAMP WHERE id = :id";
+            $stmt = $this->db->prepare($sql);
+            return $stmt->execute(['commentaire' => $commentaire, 'id' => $id]);
+        }
+    }
+
+    public function getPendingDirecteurValidation(): array
+    {
+        $sql = "SELECT ctr.*, d.numero_suivi, d.type_local, d.motif,
+                u.prenom, u.nom, u.email, u.telephone,
+                l.reference as local_reference, l.type as local_type, l.zone, l.surface
+                FROM {$this->table} ctr
+                JOIN demandes d ON ctr.demande_id = d.id
+                JOIN utilisateurs u ON ctr.locataire_id = u.id
+                LEFT JOIN locaux l ON ctr.local_id = l.id
+                WHERE ctr.statut = 'en_validation_directeur'
+                ORDER BY ctr.created_at DESC";
+        return $this->db->query($sql)->fetchAll();
     }
 }

@@ -55,7 +55,7 @@ $router->get('/api/auth/me', function() use ($router, $authController) {
 
 // User management routes (admin only)
 $router->get('/api/users', function() use ($router, $userController) {
-    $middleware = new RoleMiddleware([Roles::ADMIN]);
+    $middleware = new RoleMiddleware([Roles::ADMIN, Roles::DCUV, Roles::AGENT_COURRIER, Roles::SECRETAIRE_CSA, Roles::DIRECTEUR]);
     if (!$middleware->handle()) {
         return;
     }
@@ -121,7 +121,7 @@ $router->get('/api/users/search/{query}', function($params) use ($router, $userC
 });
 
 $router->get('/api/users/role/{role}', function($params) use ($router, $userController) {
-    $middleware = new RoleMiddleware([Roles::ADMIN]);
+    $middleware = new RoleMiddleware([Roles::ADMIN, Roles::DCUV, Roles::DIRECTEUR, Roles::SECRETAIRE_CSA, Roles::AGENT_COURRIER]);
     if (!$middleware->handle()) {
         return;
     }
@@ -378,8 +378,8 @@ $router->post('/api/contrats', function() use ($router, $contratController) {
     if (!$middleware->handle()) {
         return;
     }
-    $data = $router->getJsonInput();
-    $result = $contratController->createFromDecision((int)$data['decision_id'], $data);
+    $data = array_merge($_POST, $router->getJsonInput() ?? []);
+    $result = $contratController->createFromDecision((int)$data['decision_id'], $data, $_FILES);
     $router->sendJson($result, isset($result['error']) ? 400 : 201);
 });
 
@@ -454,6 +454,34 @@ $router->get('/api/contrats/stats', function() use ($router, $contratController)
         return;
     }
     $result = $contratController->getStats();
+    $router->sendJson($result, isset($result['error']) ? 400 : 200);
+});
+
+$router->get('/api/contrats/pending-directeur-validation', function() use ($router, $contratController) {
+    $middleware = new RoleMiddleware([Roles::ADMIN, Roles::DIRECTEUR]);
+    if (!$middleware->handle()) {
+        return;
+    }
+    $result = $contratController->getPendingDirecteurValidation();
+    $router->sendJson($result, isset($result['error']) ? 400 : 200);
+});
+
+$router->patch('/api/contrats/{id}/validate-directeur', function($params) use ($router, $contratController) {
+    $middleware = new RoleMiddleware([Roles::ADMIN, Roles::DIRECTEUR]);
+    if (!$middleware->handle()) {
+        return;
+    }
+    $data = $router->getJsonInput();
+    $result = $contratController->validateByDirecteur((int)$params[0], $middleware->getUserId(), $data);
+    $router->sendJson($result, isset($result['error']) ? 400 : 200);
+});
+
+$router->get('/api/decisions/validated-without-contrat', function() use ($router, $contratController) {
+    $middleware = new RoleMiddleware([Roles::ADMIN, Roles::DCUV]);
+    if (!$middleware->handle()) {
+        return;
+    }
+    $result = $contratController->getValidatedDecisionsWithoutContrat();
     $router->sendJson($result, isset($result['error']) ? 400 : 200);
 });
 
@@ -616,6 +644,16 @@ $router->get('/api/paiements/my', function() use ($router, $paiementController) 
     }
     $result = $paiementController->getMyPaiements($middleware->getUserId());
     $router->sendJson($result, isset($result['error']) ? 400 : 200);
+});
+
+$router->post('/api/paiements/my', function() use ($router, $paiementController) {
+    $middleware = new RoleMiddleware([Roles::LOCATAIRE, Roles::ADMIN]);
+    if (!$middleware->handle()) {
+        return;
+    }
+    $data = $router->getJsonInput();
+    $result = $paiementController->recordByLocataire($data, $middleware->getUserId());
+    $router->sendJson($result, isset($result['error']) ? 400 : 201);
 });
 
 $router->get('/api/paiements/stats', function() use ($router, $paiementController) {
@@ -825,6 +863,15 @@ $router->patch('/api/interventions/{id}/complete', function($params) use ($route
     }
     $data = $router->getJsonInput();
     $result = $incidentController->completeIntervention((int)$params[0], $data);
+    $router->sendJson($result, isset($result['error']) ? 400 : 200);
+});
+
+$router->get('/api/interventions/all', function() use ($router, $incidentController) {
+    $middleware = new RoleMiddleware([Roles::ADMIN, Roles::DCUV]);
+    if (!$middleware->handle()) {
+        return;
+    }
+    $result = $incidentController->getAllInterventions();
     $router->sendJson($result, isset($result['error']) ? 400 : 200);
 });
 

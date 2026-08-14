@@ -71,4 +71,31 @@ class Decision extends Model
         $stmt = $this->db->prepare($sql);
         return $stmt->execute(['id' => $id]);
     }
+
+    public function createAutoValidated(int $demandeId, int $directeurId, string $decision): int
+    {
+        $sql = "INSERT INTO {$this->table} (demande_id, directeur_id, decision, statut, date_decision)
+                VALUES (:demande_id, :directeur_id, :decision, 'validee', CURRENT_TIMESTAMP)";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([
+            'demande_id' => $demandeId,
+            'directeur_id' => $directeurId,
+            'decision' => $decision
+        ]);
+        return (int) $this->db->lastInsertId();
+    }
+
+    public function getValidatedWithoutContrat(): array
+    {
+        $sql = "SELECT dec.*, d.numero_suivi, d.type_local, d.motif,
+                u.prenom, u.nom, u.email, u.telephone
+                FROM {$this->table} dec
+                JOIN demandes d ON dec.demande_id = d.id
+                JOIN utilisateurs u ON d.user_id = u.id
+                LEFT JOIN contrats ctr ON ctr.demande_id = dec.demande_id
+                WHERE dec.statut = 'validee' AND dec.decision = 'attribue'
+                  AND ctr.id IS NULL
+                ORDER BY dec.date_decision DESC";
+        return $this->db->query($sql)->fetchAll();
+    }
 }

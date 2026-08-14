@@ -58,7 +58,7 @@ if ($basePath !== '/' && strpos($uri, $basePath) === 0) {
     $uri = substr($uri, strlen($basePath));
 }
 if (strpos($uri, '/uploads/') === 0) {
-    $filePath = __DIR__ . '/../..' . $uri;
+    $filePath = __DIR__ . '/..' . $uri;
     if (file_exists($filePath)) {
         $mimeTypes = [
             'pdf' => 'application/pdf',

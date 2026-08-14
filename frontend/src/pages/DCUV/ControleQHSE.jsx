@@ -33,8 +33,23 @@ export default function ControleQHSE() {
   })
   const [scoreForm, setScoreForm] = useState({ score_proprete: '', score_securite: '', score_entretien: '', observations: '', recommandations: '' })
   const [actionLoading, setActionLoading] = useState(false)
+  const [locauxList, setLocauxList] = useState([])
+  const [locatairesList, setLocatairesList] = useState([])
+  const [controlesList, setControlesList] = useState([])
 
+  useEffect(() => { loadDropdownData() }, [])
   useEffect(() => { loadData() }, [tab])
+
+  async function loadDropdownData() {
+    const [locauxRes, locatairesRes, controlesRes] = await Promise.all([
+      api.locaux.list(),
+      api.users.getByRole('locataire'),
+      api.controlesQhse.list()
+    ])
+    if (!locauxRes.error) setLocauxList(locauxRes.locaux || [])
+    if (!locatairesRes.error) setLocatairesList(locatairesRes.users || [])
+    if (!controlesRes.error) setControlesList(controlesRes.controles || [])
+  }
 
   async function loadData() {
     setLoading(true)
@@ -195,9 +210,12 @@ export default function ControleQHSE() {
             </div>
             <form onSubmit={handleCreateControle} className="px-6 py-4 space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-accent-slate">ID Local *</label>
-                <input type="number" required value={controleForm.local_id} onChange={(e) => setControleForm({...controleForm, local_id: e.target.value})}
-                  className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500" />
+                <label className="block text-sm font-semibold text-accent-slate">Local *</label>
+                <select required value={controleForm.local_id} onChange={(e) => setControleForm({...controleForm, local_id: e.target.value})}
+                  className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500">
+                  <option value="">Sélectionner un local</option>
+                  {locauxList.map(l => <option key={l.id} value={l.id}>{l.reference} — {l.zone || 'N/A'}</option>)}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-semibold text-accent-slate">Type de contrôle *</label>
@@ -274,9 +292,12 @@ export default function ControleQHSE() {
             </div>
             <form onSubmit={handleCreateSanction} className="px-6 py-4 space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-accent-slate">ID Locataire *</label>
-                <input type="number" required value={sanctionForm.locataire_id} onChange={(e) => setSanctionForm({...sanctionForm, locataire_id: e.target.value})}
-                  className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500" />
+                <label className="block text-sm font-semibold text-accent-slate">Locataire *</label>
+                <select required value={sanctionForm.locataire_id} onChange={(e) => setSanctionForm({...sanctionForm, locataire_id: e.target.value})}
+                  className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500">
+                  <option value="">Sélectionner un locataire</option>
+                  {locatairesList.map(u => <option key={u.id} value={u.id}>{u.prenom} {u.nom}</option>)}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-semibold text-accent-slate">Type de sanction *</label>
@@ -297,14 +318,20 @@ export default function ControleQHSE() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-accent-slate">ID Local</label>
-                  <input type="number" value={sanctionForm.local_id} onChange={(e) => setSanctionForm({...sanctionForm, local_id: e.target.value})}
-                    className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500" />
+                  <label className="block text-sm font-semibold text-accent-slate">Local</label>
+                  <select value={sanctionForm.local_id} onChange={(e) => setSanctionForm({...sanctionForm, local_id: e.target.value})}
+                    className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500">
+                    <option value="">Sélectionner un local</option>
+                    {locauxList.map(l => <option key={l.id} value={l.id}>{l.reference} — {l.zone || 'N/A'}</option>)}
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-accent-slate">ID Contrôle QHSE</label>
-                  <input type="number" value={sanctionForm.controle_id} onChange={(e) => setSanctionForm({...sanctionForm, controle_id: e.target.value})}
-                    className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500" />
+                  <label className="block text-sm font-semibold text-accent-slate">Contrôle QHSE</label>
+                  <select value={sanctionForm.controle_id} onChange={(e) => setSanctionForm({...sanctionForm, controle_id: e.target.value})}
+                    className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500">
+                    <option value="">Sélectionner un contrôle</option>
+                    {controlesList.map(c => <option key={c.id} value={c.id}>{c.reference} — {c.type_controle}</option>)}
+                  </select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">

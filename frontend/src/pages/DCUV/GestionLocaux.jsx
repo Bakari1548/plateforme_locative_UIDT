@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../lib/api'
-import { Building2, Plus, Edit, Trash2, Search, X, ArrowRightLeft } from 'lucide-react'
+import { Building2, Plus, Edit, Trash2, Search, X, ArrowRightLeft, MoreVertical, Eye } from 'lucide-react'
 
 const TYPES = ['cantine', 'boutique', 'kiosque', 'bureau', 'autre']
 const STATUTS = ['disponible', 'occupe', 'en_maintenance', 'reserve', 'inactif']
@@ -25,8 +25,25 @@ export default function GestionLocaux() {
     reference: '', type: 'cantine', usage: '', statut: 'disponible',
     zone: '', surface: '', description: ''
   })
+  const [selected, setSelected] = useState(null)
+  const [transferts, setTransferts] = useState([])
+  const [menuOpenId, setMenuOpenId] = useState(null)
 
   useEffect(() => { loadLocaux() }, [])
+
+  useEffect(() => {
+    function handleClickOutside() { setMenuOpenId(null) }
+    if (menuOpenId) {
+      document.addEventListener('click', handleClickOutside)
+      return () => document.removeEventListener('click', handleClickOutside)
+    }
+  }, [menuOpenId])
+
+  async function showDetails(local) {
+    setSelected(local)
+    const result = await api.locaux.transferts(local.id)
+    setTransferts(result.error ? [] : (result.transferts || []))
+  }
 
   async function loadLocaux() {
     setLoading(true)
@@ -148,13 +165,27 @@ export default function GestionLocaux() {
                         {STATUTS.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button onClick={() => openModal(local)} className="text-primary-700 hover:text-primary-800 mr-3">
-                        <Edit className="h-4 w-4 inline" />
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium relative">
+                      <button onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === local.id ? null : local.id) }}
+                        className="text-accent-slate hover:text-accent-dark">
+                        <MoreVertical className="h-5 w-5" />
                       </button>
-                      <button onClick={() => handleDelete(local.id)} className="text-accent-red hover:text-accent-red">
-                        <Trash2 className="h-4 w-4 inline" />
-                      </button>
+                      {menuOpenId === local.id && (
+                        <div className="absolute right-6 top-full mt-1 z-10 bg-white rounded-lg shadow-lg border border-accent-light py-1 w-40" onClick={(e) => e.stopPropagation()}>
+                          <button onClick={() => { setMenuOpenId(null); showDetails(local) }}
+                            className="w-full text-left px-4 py-2 text-sm text-accent-dark hover:bg-accent-lighter flex items-center gap-2">
+                            <Eye className="h-4 w-4" /> Détails
+                          </button>
+                          <button onClick={() => { setMenuOpenId(null); openModal(local) }}
+                            className="w-full text-left px-4 py-2 text-sm text-accent-dark hover:bg-accent-lighter flex items-center gap-2">
+                            <Edit className="h-4 w-4" /> Modifier
+                          </button>
+                          <button onClick={() => { setMenuOpenId(null); handleDelete(local.id) }}
+                            className="w-full text-left px-4 py-2 text-sm text-accent-red hover:bg-red-50 flex items-center gap-2">
+                            <Trash2 className="h-4 w-4" /> Supprimer
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -219,6 +250,52 @@ export default function GestionLocaux() {
                 <button type="submit" className="px-4 py-2 bg-primary-700 text-white rounded-lg hover:bg-primary-800">{editingLocal ? 'Modifier' : 'Créer'}</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {selected && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setSelected(null)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center px-6 py-4 border-b border-accent-light">
+              <h2 className="text-lg font-semibold">Détails: {selected.reference}</h2>
+              <button onClick={() => setSelected(null)}><X className="h-5 w-5 text-accent-slate" /></button>
+            </div>
+            <div className="px-6 py-4 space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-4">
+                <div><span className="font-semibold text-accent-slate">Type:</span> <span className="text-accent-dark">{selected.type}</span></div>
+                <div><span className="font-semibold text-accent-slate">Usage:</span> <span className="text-accent-dark">{selected.usage || '-'}</span></div>
+                <div><span className="font-semibold text-accent-slate">Zone:</span> <span className="text-accent-dark">{selected.zone || '-'}</span></div>
+                <div><span className="font-semibold text-accent-slate">Surface:</span> <span className="text-accent-dark">{selected.surface ? `${selected.surface} m²` : '-'}</span></div>
+                <div><span className="font-semibold text-accent-slate">Statut:</span> <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUT_COLORS[selected.statut] || ''}`}>{selected.statut}</span></div>
+                <div><span className="font-semibold text-accent-slate">Créé le:</span> <span className="text-accent-dark">{new Date(selected.created_at).toLocaleDateString('fr-FR')}</span></div>
+              </div>
+              {selected.description && (
+                <div>
+                  <p className="font-semibold text-accent-slate mb-1">Description</p>
+                  <p className="text-accent-dark p-3 bg-accent-lighter rounded">{selected.description}</p>
+                </div>
+              )}
+              <div>
+                <p className="font-semibold text-accent-slate mb-1">Historique des transferts</p>
+                {transferts.length === 0 ? (
+                  <p className="text-accent-slate">Aucun transfert enregistré</p>
+                ) : (
+                  <div className="space-y-2">
+                    {transferts.map((t) => (
+                      <div key={t.id} className="p-2 bg-accent-lighter rounded text-xs">
+                        <p><span className="font-medium">Réf:</span> {t.reference || `#${t.id}`} — <span className="font-medium">Statut:</span> {t.statut}</p>
+                        <p><span className="font-medium">Date:</span> {new Date(t.created_at).toLocaleDateString('fr-FR')}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t flex justify-end gap-2">
+              <button onClick={() => { setSelected(null); openModal(selected) }} className="px-4 py-2 bg-primary-700 text-white rounded-lg hover:bg-primary-800">Modifier</button>
+              <button onClick={() => setSelected(null)} className="px-4 py-2 text-accent-slate border border-accent-light rounded-lg hover:bg-accent-lighter">Fermer</button>
+            </div>
           </div>
         </div>
       )}

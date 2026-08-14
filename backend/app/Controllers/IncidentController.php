@@ -212,4 +212,10 @@ class IncidentController
         $interventions = $this->interventionModel->findByTechnicienId($technicienId);
         return ['success' => true, 'interventions' => $interventions, 'count' => count($interventions)];
     }
+
+    public function getAllInterventions(): array
+    {
+        $interventions = $this->interventionModel->getAllInterventions();
+        return ['success' => true, 'interventions' => $interventions, 'count' => count($interventions)];
+    }
 }

@@ -30,9 +30,16 @@ export default function GestionCourriers() {
     objet: '', contenu: '', demande_id: ''
   })
   const [actionLoading, setActionLoading] = useState(false)
+  const [usersList, setUsersList] = useState([])
   const user = getCurrentUser()
 
   useEffect(() => { loadData() }, [tab])
+  useEffect(() => { loadUsers() }, [])
+
+  async function loadUsers() {
+    const result = await api.users.list()
+    if (!result.error) setUsersList(result.users || [])
+  }
 
   async function loadData() {
     setLoading(true)
@@ -181,9 +188,12 @@ export default function GestionCourriers() {
             </div>
             <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-accent-slate">ID Destinataire *</label>
-                <input type="number" required value={formData.destinataire_id} onChange={(e) => setFormData({...formData, destinataire_id: e.target.value})}
-                  className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500" />
+                <label className="block text-sm font-semibold text-accent-slate">Destinataire *</label>
+                <select required value={formData.destinataire_id} onChange={(e) => setFormData({...formData, destinataire_id: e.target.value})}
+                  className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500">
+                  <option value="">Sélectionner un destinataire</option>
+                  {usersList.map(u => <option key={u.id} value={u.id}>{u.prenom} {u.nom} — {u.role} ({u.email})</option>)}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-semibold text-accent-slate">Type de courrier *</label>

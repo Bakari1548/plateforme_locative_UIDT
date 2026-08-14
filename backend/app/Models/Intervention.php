@@ -74,6 +74,24 @@ class Intervention extends Model
         ]);
     }
 
+    public function getAllInterventions(): array
+    {
+        $sql = "SELECT int.*, i.reference as incident_reference, i.type_incident,
+                i.description as incident_description, i.urgence,
+                t.prenom as technicien_prenom, t.nom as technicien_nom,
+                l.prenom as locataire_prenom, l.nom as locataire_nom,
+                loc.reference as local_reference
+                FROM {$this->table} int
+                JOIN incidents i ON int.incident_id = i.id
+                JOIN utilisateurs t ON int.technicien_id = t.id
+                JOIN utilisateurs l ON i.locataire_id = l.id
+                LEFT JOIN locaux loc ON i.local_id = loc.id
+                ORDER BY int.date_intervention DESC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
     public function getHistoryByIncident(int $incidentId): array
     {
         return $this->findByIncidentId($incidentId);

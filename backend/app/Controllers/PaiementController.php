@@ -36,7 +36,7 @@ class PaiementController
             return ['error' => 'Contrat non trouvé'];
         }
 
-        $validModes = ['especes', 'cheque', 'virement'];
+        $validModes = ['especes', 'cheque', 'virement', 'mobile_money'];
         $modePaiement = $data['mode_paiement'] ?? 'especes';
         if (!in_array($modePaiement, $validModes)) {
             return ['error' => 'Mode de paiement invalide'];
@@ -121,6 +121,74 @@ class PaiementController
     {
         $paiements = $this->paiementModel->findByLocataireId($userId);
         return ['success' => true, 'paiements' => $paiements, 'count' => count($paiements)];
+    }
+
+    public function recordByLocataire(array $data, int $locataireId): array
+    {
+        $required = ['contrat_id', 'montant'];
+        foreach ($required as $field) {
+            if (empty($data[$field])) {
+                return ['error' => "Le champ {$field} est requis"];
+            }
+        }
+
+        $contrat = $this->contratModel->find((int)$data['contrat_id']);
+        if (!$contrat) {
+            return ['error' => 'Contrat non trouvé'];
+        }
+
+        if ((int)$contrat['locataire_id'] !== $locataireId) {
+            return ['error' => 'Ce contrat ne vous appartient pas'];
+        }
+
+        if (!in_array($contrat['statut'], ['actif', 'signe'])) {
+            return ['error' => 'Le contrat doit être actif pour effectuer un paiement'];
+        }
+
+        $validModes = ['especes', 'mobile_money'];
+        $modePaiement = $data['mode_paiement'] ?? 'especes';
+        if (!in_array($modePaiement, $validModes)) {
+            return ['error' => 'Mode de paiement invalide (especes ou mobile_money)'];
+        }
+
+        $referenceRecu = $this->paiementModel->generateReferenceRecu();
+
+        $paiementData = [
+            'contrat_id' => (int)$data['contrat_id'],
+            'locataire_id' => $locataireId,
+            'echeance_id' => $data['echeance_id'] ?? null,
+            'montant' => (float)$data['montant'],
+            'mode_paiement' => $modePaiement,
+            'enregistre_par' => $locataireId,
+            'reference_recu' => $referenceRecu,
+            'commentaire' => $data['commentaire'] ?? null
+        ];
+
+        try {
+            $paiementId = $this->paiementModel->create($paiementData);
+
+            if (!empty($data['echeance_id'])) {
+                $this->echeanceModel->markAsPaid((int)$data['echeance_id']);
+            }
+
+            $periode = $data['periode'] ?? date('m/Y');
+            $quittance = $this->quittanceModel->createForPaiement(
+                $paiementId,
+                (float)$data['montant'],
+                $periode
+            );
+
+            $paiement = $this->paiementModel->getWithDetails($paiementId);
+
+            return [
+                'success' => true,
+                'message' => 'Paiement effectué avec succès',
+                'paiement' => $paiement,
+                'quittance' => $quittance
+            ];
+        } catch (\Exception $e) {
+            return ['error' => 'Erreur: ' . $e->getMessage()];
+        }
     }
 
     public function getQuittance(int $paiementId): array

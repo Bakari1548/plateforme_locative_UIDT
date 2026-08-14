@@ -99,9 +99,25 @@ export const api = {
     removeMembre: (id, userId) => request('DELETE', `/commissions/${id}/membres/${userId}`)
   },
   
+  // Decisions
+  decisions: {
+    validatedWithoutContrat: () => request('GET', '/decisions/validated-without-contrat')
+  },
+  
   // Contrats
   contrats: {
     create: (data) => request('POST', '/contrats', data),
+    createWithFile: (data, file) => {
+      const formData = new FormData()
+      Object.keys(data).forEach(key => formData.append(key, data[key]))
+      formData.append('fichier_contrat', file)
+      const token = getToken()
+      return fetch(`${API_BASE}/contrats`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData
+      }).then(r => r.json()).catch(() => ({ error: 'Erreur de connexion au serveur' }))
+    },
     list: () => request('GET', '/contrats'),
     my: () => request('GET', '/contrats/my'),
     get: (id) => request('GET', `/contrats/${id}`),
@@ -112,7 +128,10 @@ export const api = {
     resiliate: (id, motif) => request('POST', `/contrats/${id}/resilier`, { motif }),
     pending: () => request('GET', '/contrats/pending'),
     active: () => request('GET', '/contrats/active'),
-    stats: () => request('GET', '/contrats/stats')
+    stats: () => request('GET', '/contrats/stats'),
+    pendingDirecteurValidation: () => request('GET', '/contrats/pending-directeur-validation'),
+    validateDirecteur: (id, decision, commentaire = null) => 
+      request('PATCH', `/contrats/${id}/validate-directeur`, { decision, commentaire })
   },
   
   // Locaux
@@ -142,6 +161,7 @@ export const api = {
   paiements: {
     list: () => request('GET', '/paiements'),
     my: () => request('GET', '/paiements/my'),
+    recordMy: (data) => request('POST', '/paiements/my', data),
     stats: () => request('GET', '/paiements/stats'),
     overdue: () => request('GET', '/paiements/overdue'),
     get: (id) => request('GET', `/paiements/${id}`),
@@ -177,6 +197,7 @@ export const api = {
   // Interventions
   interventions: {
     my: () => request('GET', '/interventions/my'),
+    all: () => request('GET', '/interventions/all'),
     byIncident: (incidentId) => request('GET', `/interventions/incident/${incidentId}`),
     create: (data) => request('POST', '/interventions', data),
     complete: (id, data) => request('PATCH', `/interventions/${id}/complete`, data)

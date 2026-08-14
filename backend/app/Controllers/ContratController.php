@@ -22,7 +22,7 @@ class ContratController
         $this->decisionModel = new Decision();
     }
 
-    public function createFromDecision(int $decisionId, array $data): array
+    public function createFromDecision(int $decisionId, array $data, ?array $files = null): array
     {
         $decision = $this->decisionModel->find($decisionId);
         if (!$decision) {
@@ -48,6 +48,30 @@ class ContratController
             return ['error' => 'Un contrat existe déjà pour cette demande'];
         }
 
+        $fichierContratPath = null;
+        if ($files && isset($files['fichier_contrat']) && $files['fichier_contrat']['error'] === UPLOAD_ERR_OK) {
+            $file = $files['fichier_contrat'];
+            $allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+            if (!in_array($file['type'], $allowedMimes)) {
+                return ['error' => 'Format de fichier non autorisé. Formats acceptés: PDF, JPG, PNG, WebP'];
+            }
+            $maxSize = 10 * 1024 * 1024;
+            if ($file['size'] > $maxSize) {
+                return ['error' => 'Le fichier ne doit pas dépasser 10 Mo'];
+            }
+            $uploadDir = __DIR__ . '/../../uploads/contrats/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+            $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+            $safeName = 'contrat_' . time() . '.' . $extension;
+            $targetPath = $uploadDir . $safeName;
+            if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
+                return ['error' => 'Erreur lors de l\'enregistrement du fichier'];
+            }
+            $fichierContratPath = '/uploads/contrats/' . $safeName;
+        }
+
         $reference = $this->contratModel->generateReference();
 
         $contratData = [
@@ -61,7 +85,8 @@ class ContratController
             'periodicite' => $data['periodicite'] ?? 'mensuel',
             'caution' => $data['caution'] ?? 0,
             'conditions_particulieres' => $data['conditions_particulieres'] ?? null,
-            'statut' => 'brouillon'
+            'fichier_contrat' => $fichierContratPath,
+            'statut' => 'en_validation_directeur'
         ];
 
         try {
@@ -76,7 +101,7 @@ class ContratController
             
             return [
                 'success' => true,
-                'message' => 'Contrat créé avec succès',
+                'message' => 'Contrat créé et envoyé au Directeur pour validation',
                 'contrat' => $contrat
             ];
         } catch (\Exception $e) {
@@ -280,5 +305,49 @@ class ContratController
         } catch (\Exception $e) {
             return ['error' => 'Erreur: ' . $e->getMessage()];
         }
+    }
+
+    public function getPendingDirecteurValidation(): array
+    {
+        $contrats = $this->contratModel->getPendingDirecteurValidation();
+        return ['success' => true, 'contrats' => $contrats, 'count' => count($contrats)];
+    }
+
+    public function validateByDirecteur(int $id, int $directeurId, array $data): array
+    {
+        $contrat = $this->contratModel->find($id);
+        if (!$contrat) {
+            return ['error' => 'Contrat non trouvé'];
+        }
+
+        if ($contrat['statut'] !== 'en_validation_directeur') {
+            return ['error' => 'Ce contrat n\'est pas en attente de validation du Directeur'];
+        }
+
+        $decision = $data['decision'] ?? null;
+        if (!in_array($decision, ['approuve', 'rejete'])) {
+            return ['error' => 'Décision invalide (approuve ou rejete)'];
+        }
+
+        $commentaire = $data['commentaire'] ?? null;
+
+        try {
+            $this->contratModel->validateByDirecteur($id, $directeurId, $decision, $commentaire);
+            $updated = $this->contratModel->getWithDetails($id);
+            
+            return [
+                'success' => true,
+                'message' => $decision === 'approuve' ? 'Contrat approuvé par le Directeur' : 'Contrat rejeté par le Directeur',
+                'contrat' => $updated
+            ];
+        } catch (\Exception $e) {
+            return ['error' => 'Erreur: ' . $e->getMessage()];
+        }
+    }
+
+    public function getValidatedDecisionsWithoutContrat(): array
+    {
+        $decisions = $this->decisionModel->getValidatedWithoutContrat();
+        return ['success' => true, 'decisions' => $decisions, 'count' => count($decisions)];
     }
 }

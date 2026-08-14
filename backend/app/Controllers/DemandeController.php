@@ -5,18 +5,21 @@ namespace App\Controllers;
 use App\Models\Demande;
 use App\Models\Document;
 use App\Models\User;
+use App\Models\Decision;
 
 class DemandeController
 {
     private Demande $demandeModel;
     private Document $documentModel;
     private User $userModel;
+    private Decision $decisionModel;
 
     public function __construct()
     {
         $this->demandeModel = new Demande();
         $this->documentModel = new Document();
         $this->userModel = new User();
+        $this->decisionModel = new Decision();
     }
 
     public function create(int $userId, array $data): array
@@ -177,6 +180,18 @@ class DemandeController
         try {
             $this->demandeModel->updateStatut($id, $statut, $instructeurId, $commentaire);
             $updatedDemande = $this->demandeModel->find($id);
+
+            if ($statut === 'attribue') {
+                $user = $this->userModel->find($demande['user_id']);
+                if ($user && $user['role'] === 'visiteur') {
+                    $this->userModel->updateRole($demande['user_id'], 'locataire');
+                }
+
+                $existingDecision = $this->decisionModel->findByDemandeId($id);
+                if (!$existingDecision) {
+                    $this->decisionModel->createAutoValidated($id, $instructeurId, 'attribue');
+                }
+            }
             
             return [
                 'success' => true,

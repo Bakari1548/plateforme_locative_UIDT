@@ -10,6 +10,7 @@ import AdminUsers from './pages/Admin/Users'
 import DepotDemande from './pages/Locataire/DepotDemande'
 import SuiviDemande from './pages/Locataire/SuiviDemande'
 import MesPaiements from './pages/Locataire/MesPaiements'
+import MonContrat from './pages/Locataire/MonContrat'
 import InstructionDemandes from './pages/DCUV/InstructionDemandes'
 import GestionContrats from './pages/DCUV/GestionContrats'
 import GestionLocaux from './pages/DCUV/GestionLocaux'
@@ -19,6 +20,7 @@ import EnregistrementPaiement from './pages/AgentRecouv/EnregistrementPaiement'
 import SignalementIncident from './pages/Locataire/SignalementIncident'
 import TechnicienBoard from './pages/Technicien/TableauBord'
 import ControleQHSE from './pages/DCUV/ControleQHSE'
+import SupervisionInterventions from './pages/DCUV/SupervisionInterventions'
 import GestionCourriers from './pages/Courriers/GestionCourriers'
 import AppLayout from './components/AppLayout'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -64,6 +66,11 @@ function App() {
             <AppLayout><MesPaiements /></AppLayout>
           </ProtectedRoute>
         } />
+        <Route path="/mon-contrat" element={
+          <ProtectedRoute roles={['locataire']}>
+            <AppLayout><MonContrat /></AppLayout>
+          </ProtectedRoute>
+        } />
         <Route path="/incidents" element={
           <ProtectedRoute roles={['locataire']}>
             <AppLayout><SignalementIncident /></AppLayout>
@@ -89,6 +96,11 @@ function App() {
         <Route path="/dcuv/qhse" element={
           <ProtectedRoute roles={['dcuv', 'admin']}>
             <AppLayout><ControleQHSE /></AppLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/dcuv/interventions" element={
+          <ProtectedRoute roles={['dcuv', 'admin']}>
+            <AppLayout><SupervisionInterventions /></AppLayout>
           </ProtectedRoute>
         } />
 

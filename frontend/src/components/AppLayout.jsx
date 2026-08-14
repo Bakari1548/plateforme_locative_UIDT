@@ -114,8 +114,8 @@ function getNavForRole(role) {
       { path: '/demandes', label: 'Mes demandes' },
     ],
     locataire: [
-      { path: '/demandes/nouveau', label: 'Nouvelle demande' },
-      { path: '/demandes', label: 'Mes demandes' },
+      { path: '/demandes', label: 'Ma demande' },
+      { path: '/mon-contrat', label: 'Mon contrat' },
       { path: '/paiements', label: 'Mes paiements' },
       { path: '/incidents', label: 'Signaler incident' },
     ],
@@ -124,6 +124,7 @@ function getNavForRole(role) {
       { path: '/dcuv/contrats', label: 'Contrats' },
       { path: '/dcuv/locaux', label: 'Locaux' },
       { path: '/dcuv/qhse', label: 'Contrôles QHSE' },
+      { path: '/dcuv/interventions', label: 'Interventions' },
       { path: '/courriers', label: 'Courriers' },
     ],
     directeur: [

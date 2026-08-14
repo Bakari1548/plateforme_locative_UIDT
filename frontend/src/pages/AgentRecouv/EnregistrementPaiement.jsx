@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../lib/api'
-import { DollarSign, FileText, AlertTriangle, TrendingUp, X } from 'lucide-react'
+import { DollarSign, FileText, AlertTriangle, TrendingUp, X, Download } from 'lucide-react'
+import { generateQuittancePDF } from '../../lib/quittancePdf'
 
 export default function EnregistrementPaiement() {
   const [paiements, setPaiements] = useState([])
@@ -15,6 +16,7 @@ export default function EnregistrementPaiement() {
     echeance_id: '', periode: '', commentaire: ''
   })
   const [actionLoading, setActionLoading] = useState(false)
+  const [pdfLoading, setPdfLoading] = useState(null)
 
   useEffect(() => { loadData() }, [tab])
 
@@ -43,6 +45,17 @@ export default function EnregistrementPaiement() {
     if (result.error) { setError(result.error) }
     else { setShowModal(false); setFormData({ contrat_id: '', locataire_id: '', montant: '', mode_paiement: 'especes', echeance_id: '', periode: '', commentaire: '' }); loadData() }
     setActionLoading(false)
+  }
+
+  async function handleDownloadPDF(p) {
+    setPdfLoading(p.id)
+    const result = await api.quittances.get(p.id)
+    if (result.error) {
+      setError(result.error)
+    } else {
+      generateQuittancePDF(result.quittance)
+    }
+    setPdfLoading(null)
   }
 
   return (
@@ -80,6 +93,7 @@ export default function EnregistrementPaiement() {
                     <th className="px-6 py-3 text-left text-xs font-semibold text-accent-slate uppercase">Montant</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-accent-slate uppercase">Mode</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-accent-slate uppercase">Référence</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-accent-slate uppercase">Action</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-accent-light">
@@ -91,6 +105,16 @@ export default function EnregistrementPaiement() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-accent-dark">{p.montant} FCFA</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-accent-dark">{p.mode_paiement}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-accent-slate">{p.reference_recu}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <button
+                          onClick={() => handleDownloadPDF(p)}
+                          disabled={pdfLoading === p.id}
+                          className="px-2.5 py-1 bg-primary-700 text-white text-xs rounded-lg hover:bg-primary-800 flex items-center gap-1 disabled:opacity-50"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          {pdfLoading === p.id ? '...' : 'Quittance'}
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

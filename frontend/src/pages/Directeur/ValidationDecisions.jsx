@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../lib/api'
-import { Shield, CheckCircle, XCircle, Clock, FileText, Gavel } from 'lucide-react'
+import { Shield, CheckCircle, XCircle, Clock, FileText, Gavel, X } from 'lucide-react'
 
 const STATUT_CONFIG = {
   recevable: { label: 'Recevable', color: 'bg-green-100 text-secondary-600', icon: CheckCircle },
@@ -19,10 +19,10 @@ export default function ValidationDecisions() {
   const [actionLoading, setActionLoading] = useState(false)
 
   useEffect(() => {
-    loadDemandes()
+    loadData()
   }, [tab])
 
-  async function loadDemandes() {
+  async function loadData() {
     setLoading(true)
     setError('')
     let result
@@ -48,7 +48,7 @@ export default function ValidationDecisions() {
     } else {
       setSelected(null)
       setCommentaire('')
-      loadDemandes()
+      loadData()
     }
     setActionLoading(false)
   }

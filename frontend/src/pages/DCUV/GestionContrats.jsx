@@ -1,30 +1,40 @@
 import { useState, useEffect } from 'react'
-import { api } from '../../lib/api'
-import { FileSignature, Send, CheckCircle, Clock, FileText, X } from 'lucide-react'
+import { api, getCurrentUser } from '../../lib/api'
+import { FileSignature, CheckCircle, Clock, FileText, X, Upload, Plus, Gavel, XCircle } from 'lucide-react'
 
 export default function GestionContrats() {
   const [contrats, setContrats] = useState([])
+  const [locauxDispo, setLocauxDispo] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [tab, setTab] = useState('pending')
   const [selected, setSelected] = useState(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
+  const [contratFile, setContratFile] = useState(null)
   const [createForm, setCreateForm] = useState({
     decision_id: '', local_id: '', date_debut: '', date_fin: '',
     montant_loyer: '', periodicite: 'mensuel', caution: '', conditions_particulieres: ''
   })
+  const [decisionContrat, setDecisionContrat] = useState(null)
+  const [decisionCommentaire, setDecisionCommentaire] = useState('')
+  const user = getCurrentUser()
+  const isDirecteur = user?.role === 'directeur'
 
   useEffect(() => {
     loadContrats()
   }, [tab])
+
+  useEffect(() => {
+    api.locaux.available().then(r => { if (!r.error) setLocauxDispo(r.locaux || []) })
+  }, [])
 
   async function loadContrats() {
     setLoading(true)
     setError('')
     let result
     if (tab === 'pending') {
-      result = await api.contrats.pending()
+      result = await api.contrats.pendingDirecteurValidation()
     } else if (tab === 'active') {
       result = await api.contrats.active()
     } else {
@@ -38,41 +48,39 @@ export default function GestionContrats() {
     setLoading(false)
   }
 
-  async function handleSendForSignature(id) {
-    setActionLoading(true)
-    const result = await api.contrats.sendForSignature(id)
-    if (result.error) {
-      setError(result.error)
-    } else {
-      loadContrats()
-    }
-    setActionLoading(false)
-  }
-
-  async function handleSignDcuv(id) {
-    setActionLoading(true)
-    const result = await api.contrats.signDcuv(id)
-    if (result.error) {
-      setError(result.error)
-    } else {
-      loadContrats()
-    }
-    setActionLoading(false)
-  }
-
   async function handleCreate(e) {
     e.preventDefault()
     setActionLoading(true)
     setError('')
-    const result = await api.contrats.create(createForm)
+    if (!contratFile) {
+      setError('Veuillez sélectionner un fichier de contrat')
+      setActionLoading(false)
+      return
+    }
+    const result = await api.contrats.createWithFile(createForm, contratFile)
     if (result.error) {
       setError(result.error)
     } else {
       setShowCreate(false)
+      setContratFile(null)
       setCreateForm({
         decision_id: '', local_id: '', date_debut: '', date_fin: '',
         montant_loyer: '', periodicite: 'mensuel', caution: '', conditions_particulieres: ''
       })
+      loadContrats()
+    }
+    setActionLoading(false)
+  }
+
+  async function handleContratDecision(contratId, decision) {
+    setActionLoading(true)
+    setError('')
+    const result = await api.contrats.validateDirecteur(contratId, decision, decisionCommentaire || null)
+    if (result.error) {
+      setError(result.error)
+    } else {
+      setDecisionContrat(null)
+      setDecisionCommentaire('')
       loadContrats()
     }
     setActionLoading(false)
@@ -114,6 +122,14 @@ export default function GestionContrats() {
           >
             Tous
           </button>
+          {!isDirecteur && (
+            <button
+              onClick={() => setShowCreate(true)}
+              className="ml-auto px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 flex items-center gap-1"
+            >
+              <Plus className="h-4 w-4" /> Créer un contrat
+            </button>
+          )}
         </div>
 
         {loading ? (
@@ -135,6 +151,7 @@ export default function GestionContrats() {
                         c.statut === 'actif' ? 'bg-green-100 text-secondary-600' :
                         c.statut === 'signe' ? 'bg-blue-100 text-blue-700' :
                         c.statut === 'en_attente_signature' ? 'bg-yellow-100 text-yellow-700' :
+                        c.statut === 'en_validation_directeur' ? 'bg-purple-100 text-purple-700' :
                         c.statut === 'resilie' ? 'bg-red-100 text-accent-red' :
                         'bg-accent-lighter text-accent-slate'
                       }`}>
@@ -151,24 +168,14 @@ export default function GestionContrats() {
                     </div>
                   </div>
                   <div className="flex flex-col gap-2 ml-4">
-                    {c.statut === 'brouillon' && (
+                    {isDirecteur && c.statut === 'en_validation_directeur' && (
                       <button
-                        onClick={() => handleSendForSignature(c.id)}
+                        onClick={() => { setDecisionContrat(c); setDecisionCommentaire('') }}
                         disabled={actionLoading}
                         className="px-3 py-1.5 bg-primary-700 text-white text-sm rounded-lg hover:bg-primary-800"
                       >
-                        <Send className="h-4 w-4 inline mr-1" />
-                        Envoyer
-                      </button>
-                    )}
-                    {c.statut === 'en_attente_signature' && !c.signe_par_dcuv && (
-                      <button
-                        onClick={() => handleSignDcuv(c.id)}
-                        disabled={actionLoading}
-                        className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
-                      >
-                        <CheckCircle className="h-4 w-4 inline mr-1" />
-                        Signer DCUV
+                        <Gavel className="h-4 w-4 inline mr-1" />
+                        Décider
                       </button>
                     )}
                     <button
@@ -196,22 +203,25 @@ export default function GestionContrats() {
             </div>
             <form onSubmit={handleCreate} className="px-6 py-4 space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-accent-slate">ID Décision *</label>
+                <label className="block text-sm font-semibold text-accent-slate">N° décision (optionnel)</label>
                 <input
-                  type="number" required
+                  type="number"
                   value={createForm.decision_id}
                   onChange={(e) => setCreateForm({...createForm, decision_id: e.target.value})}
                   className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500"
+                  placeholder="ID de la décision validée"
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-accent-slate">ID Local</label>
-                <input
-                  type="number"
+                <label className="block text-sm font-semibold text-accent-slate">Local disponible</label>
+                <select
                   value={createForm.local_id}
                   onChange={(e) => setCreateForm({...createForm, local_id: e.target.value})}
                   className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500"
-                />
+                >
+                  <option value="">Sélectionner un local</option>
+                  {locauxDispo.map(l => <option key={l.id} value={l.id}>{l.reference} — {l.zone || 'N/A'} ({l.surface} m²)</option>)}
+                </select>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -274,6 +284,16 @@ export default function GestionContrats() {
                   className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-semibold text-accent-slate">Fichier du contrat (PDF, JPG, PNG) *</label>
+                <input
+                  type="file" required
+                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  onChange={(e) => setContratFile(e.target.files[0])}
+                  className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500"
+                />
+                {contratFile && <p className="text-xs text-secondary-600 mt-1">Fichier: {contratFile.name}</p>}
+              </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
@@ -318,6 +338,83 @@ export default function GestionContrats() {
               {selected.conditions_particulieres && (
                 <p><span className="font-medium">Conditions:</span> {selected.conditions_particulieres}</p>
               )}
+              {selected.fichier_contrat && (
+                <p><span className="font-medium">Document:</span>
+                  <a href={selected.fichier_contrat} target="_blank" rel="noopener noreferrer" className="text-primary-700 underline ml-1">Voir le contrat</a>
+                </p>
+              )}
+              {selected.commentaire_directeur && (
+                <p className="p-2 bg-orange-50 rounded">
+                  <span className="font-medium">Commentaire Directeur:</span> {selected.commentaire_directeur}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Decision modal for Directeur */}
+      {decisionContrat && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-accent-light">
+              <h2 className="text-lg font-semibold">Décision: {decisionContrat.reference}</h2>
+              <button onClick={() => setDecisionContrat(null)}><X className="h-5 w-5 text-accent-slate" /></button>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <div className="text-sm text-accent-slate space-y-2">
+                <p><span className="font-medium">Locataire:</span> {decisionContrat.prenom} {decisionContrat.nom}</p>
+                <p><span className="font-medium">N° suivi:</span> {decisionContrat.numero_suivi}</p>
+                <p><span className="font-medium">Date début:</span> {new Date(decisionContrat.date_debut).toLocaleDateString('fr-FR')}</p>
+                {decisionContrat.montant_loyer && <p><span className="font-medium">Loyer:</span> {decisionContrat.montant_loyer} FCFA / {decisionContrat.periodicite}</p>}
+                {decisionContrat.caution && <p><span className="font-medium">Caution:</span> {decisionContrat.caution} FCFA</p>}
+                {decisionContrat.fichier_contrat && (
+                  <p><span className="font-medium">Document:</span>
+                    <a href={decisionContrat.fichier_contrat} target="_blank" rel="noopener noreferrer" className="text-primary-700 underline ml-1">Voir le contrat</a>
+                  </p>
+                )}
+                {decisionContrat.conditions_particulieres && (
+                  <p className="p-2 bg-accent-lighter rounded">
+                    <span className="font-medium">Conditions:</span> {decisionContrat.conditions_particulieres}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-accent-slate">Commentaire (optionnel pour modification)</label>
+                <textarea
+                  rows={3}
+                  value={decisionCommentaire}
+                  onChange={(e) => setDecisionCommentaire(e.target.value)}
+                  placeholder="Précisez les modifications à apporter..."
+                  className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => handleContratDecision(decisionContrat.id, 'approuve')}
+                  disabled={actionLoading}
+                  className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
+                >
+                  <CheckCircle className="h-4 w-4 inline mr-1" />
+                  Approuver
+                </button>
+                <button
+                  onClick={() => handleContratDecision(decisionContrat.id, 'rejete')}
+                  disabled={actionLoading}
+                  className="px-4 py-2 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700"
+                >
+                  <XCircle className="h-4 w-4 inline mr-1" />
+                  Demander modification
+                </button>
+              </div>
+              <div className="flex justify-end pt-2">
+                <button
+                  onClick={() => { setDecisionContrat(null); setDecisionCommentaire('') }}
+                  className="px-4 py-2 text-accent-slate border border-accent-light rounded-lg hover:bg-accent-lighter"
+                >
+                  Fermer
+                </button>
+              </div>
             </div>
           </div>
         </div>
