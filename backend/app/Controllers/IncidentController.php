@@ -88,6 +88,12 @@ class IncidentController
         return ['success' => true, 'incidents' => $incidents, 'count' => count($incidents)];
     }
 
+    public function getActiveForTechnicien(int $technicienId): array
+    {
+        $incidents = $this->incidentModel->findActiveByTechnicienId($technicienId);
+        return ['success' => true, 'incidents' => $incidents, 'count' => count($incidents)];
+    }
+
     public function validate(int $id, int $validePar, array $data): array
     {
         $incident = $this->incidentModel->find($id);
@@ -126,6 +132,16 @@ class IncidentController
 
         try {
             $this->incidentModel->assignTechnicien($id, $technicienId);
+
+            $existingInterventions = $this->interventionModel->findByIncidentId($id);
+            if (empty($existingInterventions)) {
+                $this->interventionModel->create([
+                    'incident_id' => $id,
+                    'technicien_id' => $technicienId,
+                    'statut' => 'planifiee'
+                ]);
+            }
+
             $updated = $this->incidentModel->getWithDetails($id);
             return ['success' => true, 'message' => 'Technicien assigné', 'incident' => $updated];
         } catch (\Exception $e) {
@@ -164,6 +180,13 @@ class IncidentController
         }
 
         try {
+            $existing = $this->interventionModel->findByIncidentId($incidentId);
+            if (!empty($existing)) {
+                $this->incidentModel->assignTechnicien($incidentId, $technicienId);
+                $intervention = $this->interventionModel->getWithDetails($existing[0]['id']);
+                return ['success' => true, 'message' => 'Intervention déjà existante', 'intervention' => $intervention];
+            }
+
             $interventionData = array_merge($data, [
                 'incident_id' => $incidentId,
                 'technicien_id' => $technicienId,
@@ -171,8 +194,7 @@ class IncidentController
             ]);
             $id = $this->interventionModel->create($interventionData);
 
-            // Update incident status to en_cours
-            $this->incidentModel->updateStatut($incidentId, 'en_cours');
+            $this->incidentModel->assignTechnicien($incidentId, $technicienId);
 
             $intervention = $this->interventionModel->getWithDetails($id);
             return ['success' => true, 'message' => 'Intervention créée', 'intervention' => $intervention];
@@ -191,8 +213,8 @@ class IncidentController
         try {
             $this->interventionModel->complete($id, $data);
 
-            // Mark incident as resolved
-            $this->incidentModel->updateStatut($intervention['incident_id'], 'resolu');
+            // Mark incident as termine
+            $this->incidentModel->updateStatut($intervention['incident_id'], 'termine');
 
             $updated = $this->interventionModel->getWithDetails($id);
             return ['success' => true, 'message' => 'Intervention terminée', 'intervention' => $updated];

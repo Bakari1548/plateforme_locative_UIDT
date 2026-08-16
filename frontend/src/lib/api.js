@@ -70,6 +70,7 @@ export const api = {
     updateStatut: (id, statut, commentaire = null) => 
       request('PATCH', `/demandes/${id}/statut`, { statut, commentaire }),
     pending: () => request('GET', '/demandes/pending'),
+    dcuvInstruction: () => request('GET', '/demandes/dcuv-instruction'),
     recevables: () => request('GET', '/demandes/recevables'),
     decided: () => request('GET', '/demandes/decided'),
     stats: () => request('GET', '/demandes/stats'),
@@ -131,7 +132,9 @@ export const api = {
     stats: () => request('GET', '/contrats/stats'),
     pendingDirecteurValidation: () => request('GET', '/contrats/pending-directeur-validation'),
     validateDirecteur: (id, decision, commentaire = null) => 
-      request('PATCH', `/contrats/${id}/validate-directeur`, { decision, commentaire })
+      request('PATCH', `/contrats/${id}/validate-directeur`, { decision, commentaire }),
+    brouillons: () => request('GET', '/contrats/brouillons'),
+    sendToDirecteur: (id) => request('POST', `/contrats/${id}/send-directeur`)
   },
   
   // Locaux
@@ -153,6 +156,7 @@ export const api = {
   // Transferts
   transferts: {
     create: (data) => request('POST', '/transferts', data),
+    my: () => request('GET', '/transferts/my'),
     pending: () => request('GET', '/transferts/pending'),
     validate: (id, statut) => request('PATCH', `/transferts/${id}`, { statut })
   },
@@ -186,6 +190,7 @@ export const api = {
   incidents: {
     list: () => request('GET', '/incidents'),
     pending: () => request('GET', '/incidents/pending'),
+    active: () => request('GET', '/incidents/active'),
     stats: () => request('GET', '/incidents/stats'),
     get: (id) => request('GET', `/incidents/${id}`),
     create: (data) => request('POST', '/incidents', data),

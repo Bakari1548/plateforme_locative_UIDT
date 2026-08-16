@@ -28,8 +28,15 @@ export default function GestionLocaux() {
   const [selected, setSelected] = useState(null)
   const [transferts, setTransferts] = useState([])
   const [menuOpenId, setMenuOpenId] = useState(null)
+  const [tab, setTab] = useState('locaux')
+  const [pendingTransferts, setPendingTransferts] = useState([])
+  const [actionLoading, setActionLoading] = useState(false)
 
   useEffect(() => { loadLocaux() }, [])
+
+  useEffect(() => {
+    if (tab === 'transferts') loadPendingTransferts()
+  }, [tab])
 
   useEffect(() => {
     function handleClickOutside() { setMenuOpenId(null) }
@@ -51,6 +58,22 @@ export default function GestionLocaux() {
     if (result.error) { setError(result.error) }
     else { setLocaux(result.locaux || []) }
     setLoading(false)
+  }
+
+  async function loadPendingTransferts() {
+    setLoading(true)
+    const result = await api.transferts.pending()
+    if (result.error) { setError(result.error) }
+    else { setPendingTransferts(result.transferts || []) }
+    setLoading(false)
+  }
+
+  async function handleValidateTransfert(id, statut) {
+    setActionLoading(true)
+    const result = await api.transferts.validate(id, statut)
+    if (result.error) { setError(result.error) }
+    else { loadPendingTransferts() }
+    setActionLoading(false)
   }
 
   async function handleSearch(e) {
@@ -114,6 +137,76 @@ export default function GestionLocaux() {
         {error && <div className="mb-4 bg-red-50 border border-red-200 text-accent-red px-4 py-3 rounded-lg">{error}</div>}
 
         <div className="mb-6 flex gap-2">
+          <button
+            onClick={() => setTab('locaux')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${
+              tab === 'locaux' ? 'bg-primary-700 text-white' : 'bg-white text-accent-slate border border-accent-light'
+            }`}
+          >
+            Locaux
+          </button>
+          <button
+            onClick={() => setTab('transferts')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${
+              tab === 'transferts' ? 'bg-primary-700 text-white' : 'bg-white text-accent-slate border border-accent-light'
+            }`}
+          >
+            Transferts en attente
+            {pendingTransferts.length > 0 && (
+              <span className="ml-2 px-2 py-0.5 bg-red-500 text-white rounded-full text-xs">{pendingTransferts.length}</span>
+            )}
+          </button>
+        </div>
+
+        {tab === 'transferts' ? (
+          loading ? (
+            <div className="bg-white shadow-sm rounded-lg p-8 text-center text-accent-slate">Chargement...</div>
+          ) : pendingTransferts.length === 0 ? (
+            <div className="bg-white shadow-sm rounded-lg p-8 text-center">
+              <ArrowRightLeft className="h-12 w-12 text-accent-light mx-auto mb-3" />
+              <p className="text-accent-slate">Aucun transfert en attente</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {pendingTransferts.map((t) => (
+                <div key={t.id} className="bg-white shadow-sm rounded-lg p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-lg font-semibold text-accent-dark">{t.local_reference || 'Local'}</span>
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">En attente</span>
+                      </div>
+                      <div className="text-sm text-accent-slate space-y-1">
+                        <p><span className="font-medium">Ancien locataire:</span> {t.ancien_prenom || 'N/A'} {t.ancien_nom || ''}</p>
+                        <p><span className="font-medium">Nouveau demandeur:</span> {t.nouveau_prenom} {t.nouveau_nom}</p>
+                        {t.motif && <p><span className="font-medium">Motif:</span> {t.motif}</p>}
+                        <p><span className="font-medium">Date:</span> {new Date(t.created_at).toLocaleDateString('fr-FR')}</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2 ml-4">
+                      <button
+                        onClick={() => handleValidateTransfert(t.id, 'valide')}
+                        disabled={actionLoading}
+                        className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
+                      >
+                        Valider
+                      </button>
+                      <button
+                        onClick={() => handleValidateTransfert(t.id, 'refuse')}
+                        disabled={actionLoading}
+                        className="px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700"
+                      >
+                        Refuser
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        ) : (
+          <>
+          <div className="mb-6 flex gap-2">
           <form onSubmit={handleSearch} className="flex-1 flex gap-2">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-accent-slate" />
@@ -192,6 +285,8 @@ export default function GestionLocaux() {
               </tbody>
             </table>
           </div>
+          )}
+          </>
         )}
 
       {showModal && (

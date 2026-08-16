@@ -48,7 +48,7 @@ class Contrat extends Model
     {
         $sql = "SELECT ctr.*, d.numero_suivi, d.type_local,
                 u.prenom, u.nom, u.email, u.telephone, u.profession, u.numero_cni,
-                l.reference as local_reference, l.type as local_type, l.zone, l.surface
+                l.reference as local_reference, l.type as local_type, l.zone, l.surface, l.usage as local_usage, l.loyer_mensuel
                 FROM {$this->table} ctr
                 JOIN demandes d ON ctr.demande_id = d.id
                 JOIN utilisateurs u ON ctr.locataire_id = u.id
@@ -76,7 +76,7 @@ class Contrat extends Model
     {
         $sql = "UPDATE {$this->table} 
                 SET signe_par_locataire = 1, date_signature_locataire = CURRENT_TIMESTAMP,
-                    statut = CASE WHEN signe_par_dcuv = 1 THEN 'signe' ELSE statut END,
+                    statut = 'actif',
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = :id";
         $stmt = $this->db->prepare($sql);
@@ -160,7 +160,7 @@ class Contrat extends Model
     public function validateByDirecteur(int $id, int $directeurId, string $decision, ?string $commentaire = null): bool
     {
         if ($decision === 'approuve') {
-            $sql = "UPDATE {$this->table} SET statut = 'actif', valide_par_directeur_id = :directeur_id, date_validation_directeur = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = :id";
+            $sql = "UPDATE {$this->table} SET statut = 'en_attente_signature', valide_par_directeur_id = :directeur_id, date_validation_directeur = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = :id";
             $stmt = $this->db->prepare($sql);
             return $stmt->execute(['directeur_id' => $directeurId, 'id' => $id]);
         } else {
@@ -182,5 +182,26 @@ class Contrat extends Model
                 WHERE ctr.statut = 'en_validation_directeur'
                 ORDER BY ctr.created_at DESC";
         return $this->db->query($sql)->fetchAll();
+    }
+
+    public function getBrouillons(): array
+    {
+        $sql = "SELECT ctr.*, d.numero_suivi, d.type_local, d.motif,
+                u.prenom, u.nom, u.email, u.telephone, u.profession, u.numero_cni,
+                l.reference as local_reference, l.type as local_type, l.zone, l.surface, l.usage as local_usage
+                FROM {$this->table} ctr
+                JOIN demandes d ON ctr.demande_id = d.id
+                JOIN utilisateurs u ON ctr.locataire_id = u.id
+                LEFT JOIN locaux l ON ctr.local_id = l.id
+                WHERE ctr.statut = 'brouillon'
+                ORDER BY ctr.created_at DESC";
+        return $this->db->query($sql)->fetchAll();
+    }
+
+    public function sendToDirecteur(int $id): bool
+    {
+        $sql = "UPDATE {$this->table} SET statut = 'en_validation_directeur', updated_at = CURRENT_TIMESTAMP WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute(['id' => $id]);
     }
 }

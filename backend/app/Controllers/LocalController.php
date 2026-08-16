@@ -5,18 +5,24 @@ namespace App\Controllers;
 use App\Models\Local;
 use App\Models\TransfertLocal;
 use App\Models\Contrat;
+use App\Models\User;
+use App\Models\Notification;
 
 class LocalController
 {
     private Local $localModel;
     private TransfertLocal $transfertModel;
     private Contrat $contratModel;
+    private User $userModel;
+    private Notification $notificationModel;
 
     public function __construct()
     {
         $this->localModel = new Local();
         $this->transfertModel = new TransfertLocal();
         $this->contratModel = new Contrat();
+        $this->userModel = new User();
+        $this->notificationModel = new Notification();
     }
 
     public function index(): array
@@ -153,12 +159,20 @@ class LocalController
     }
 
     // Transferts
-    public function createTransfert(array $data): array
+    public function createTransfert(array $data, int $ancienLocataireId): array
     {
-        $required = ['local_id', 'nouveau_locataire_id'];
+        $required = ['local_id'];
         foreach ($required as $field) {
             if (empty($data[$field])) {
                 return ['error' => "Le champ {$field} est requis"];
+            }
+        }
+
+        // Validate new applicant info
+        $applicantFields = ['nom', 'prenom', 'email', 'telephone'];
+        foreach ($applicantFields as $field) {
+            if (empty($data[$field])) {
+                return ['error' => "Le champ {$field} du nouveau demandeur est requis"];
             }
         }
 
@@ -167,13 +181,65 @@ class LocalController
             return ['error' => 'Local non trouvé'];
         }
 
+        // Check if email already exists
+        $existingUser = $this->userModel->findByEmail($data['email']);
+        if ($existingUser) {
+            return ['error' => 'Un utilisateur avec cet email existe déjà'];
+        }
+
         try {
-            $transfertId = $this->transfertModel->create($data);
+            // Create a visiteur account for the new applicant
+            $tempPassword = bin2hex(random_bytes(4));
+            $userId = $this->userModel->create([
+                'nom' => $data['nom'],
+                'prenom' => $data['prenom'],
+                'email' => $data['email'],
+                'telephone' => $data['telephone'],
+                'numero_cni' => $data['numero_cni'] ?? null,
+                'password' => $tempPassword,
+                'role' => 'visiteur',
+                'statut' => 'actif'
+            ]);
+
+            $transfertData = [
+                'local_id' => (int)$data['local_id'],
+                'ancien_locataire_id' => $ancienLocataireId,
+                'nouveau_locataire_id' => $userId,
+                'motif' => $data['motif'] ?? null,
+                'statut' => 'en_attente'
+            ];
+
+            // Find active contract for ancien locataire
+            $ancienContrats = $this->contratModel->findByLocataireId($ancienLocataireId);
+            foreach ($ancienContrats as $c) {
+                if ($c['statut'] === 'actif') {
+                    $transfertData['ancien_contrat_id'] = $c['id'];
+                    break;
+                }
+            }
+
+            $transfertId = $this->transfertModel->create($transfertData);
             $transfert = $this->transfertModel->find($transfertId);
-            return ['success' => true, 'message' => 'Transfert demandé', 'transfert' => $transfert];
+
+            // Notify all DCUV users
+            $this->notificationModel->createForRole(
+                'dcuv',
+                'systeme',
+                'Demande de transfert de local',
+                "Le locataire demande à céder le local {$local['reference']} à un nouveau demandeur: {$data['prenom']} {$data['nom']}",
+                ['transfert_id' => $transfertId, 'local_id' => $local['id']]
+            );
+
+            return ['success' => true, 'message' => 'Transfert demandé. Le DCUV a été informé.', 'transfert' => $transfert];
         } catch (\Exception $e) {
             return ['error' => 'Erreur: ' . $e->getMessage()];
         }
+    }
+
+    public function getMyTransferts(int $userId): array
+    {
+        $transferts = $this->transfertModel->findByUserId($userId);
+        return ['success' => true, 'transferts' => $transferts, 'count' => count($transferts)];
     }
 
     public function validateTransfert(int $id, int $validePar, string $statut): array
@@ -193,6 +259,40 @@ class LocalController
             if ($statut === 'valide') {
                 // Update local status
                 $this->localModel->updateStatut($transfert['local_id'], 'occupe');
+
+                // Promote new applicant to locataire
+                $newUser = $this->userModel->find($transfert['nouveau_locataire_id']);
+                if ($newUser && $newUser['role'] === 'visiteur') {
+                    $this->userModel->updateRole($transfert['nouveau_locataire_id'], 'locataire');
+                }
+
+                // Notify the new applicant
+                $this->notificationModel->createForUser(
+                    $transfert['nouveau_locataire_id'],
+                    'systeme',
+                    'Transfert validé',
+                    'Votre transfert de local a été validé. Vous êtes maintenant locataire.'
+                );
+
+                // Notify the ancien locataire
+                if ($transfert['ancien_locataire_id']) {
+                    $this->notificationModel->createForUser(
+                        $transfert['ancien_locataire_id'],
+                        'systeme',
+                        'Transfert validé',
+                        'Votre demande de transfert de local a été validée.'
+                    );
+                }
+            } else {
+                // Notify the ancien locataire of refusal
+                if ($transfert['ancien_locataire_id']) {
+                    $this->notificationModel->createForUser(
+                        $transfert['ancien_locataire_id'],
+                        'systeme',
+                        'Transfert refusé',
+                        'Votre demande de transfert de local a été refusée.'
+                    );
+                }
             }
 
             $updated = $this->transfertModel->find($id);

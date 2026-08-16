@@ -21,8 +21,9 @@ const URGENCES = [
 const STATUT_COLORS = {
   signale: 'bg-yellow-100 text-yellow-700',
   en_attente: 'bg-blue-100 text-blue-700',
-  pris_en_charge: 'bg-purple-100 text-purple-700',
+  planifie: 'bg-purple-100 text-purple-700',
   en_cours: 'bg-orange-100 text-orange-700',
+  termine: 'bg-green-100 text-secondary-600',
   resolu: 'bg-green-100 text-secondary-600',
   cloture: 'bg-accent-lighter text-accent-slate',
   rejete: 'bg-red-100 text-accent-red'
@@ -38,8 +39,23 @@ export default function SignalementIncident() {
     local_id: '', contrat_id: ''
   })
   const [actionLoading, setActionLoading] = useState(false)
+  const [contrats, setContrats] = useState([])
 
-  useEffect(() => { loadIncidents() }, [])
+  useEffect(() => {
+    loadIncidents()
+    loadContrats()
+  }, [])
+
+  async function loadContrats() {
+    const result = await api.contrats.my()
+    if (!result.error && result.contrats) {
+      const actifs = result.contrats.filter(c => ['signe', 'actif'].includes(c.statut))
+      setContrats(actifs)
+      if (actifs.length === 1) {
+        setFormData(prev => ({ ...prev, local_id: actifs[0].local_id, contrat_id: actifs[0].id }))
+      }
+    }
+  }
 
   async function loadIncidents() {
     setLoading(true)
@@ -55,14 +71,27 @@ export default function SignalementIncident() {
     setError('')
     const result = await api.incidents.create(formData)
     if (result.error) { setError(result.error) }
-    else { setShowModal(false); setFormData({ type_incident: '', description: '', urgence: 'normal', local_id: '', contrat_id: '' }); loadIncidents() }
+    else {
+      setShowModal(false)
+      setFormData({ type_incident: '', description: '', urgence: 'normal', local_id: contrats.length === 1 ? contrats[0].local_id : '', contrat_id: contrats.length === 1 ? contrats[0].id : '' })
+      loadIncidents()
+    }
     setActionLoading(false)
   }
 
   return (
     <div>
-      <h1 className="text-2xl font-extrabold text-accent-dark mb-1">Signalement d'incidents</h1>
-      <p className="text-sm text-accent-slate mb-6">Signaler et suivre les incidents</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-extrabold text-accent-dark mb-1">Signalement d'incidents</h1>
+          <p className="text-sm text-accent-slate mb-6">Signaler et suivre les incidents</p>
+        </div>
+       {incidents.length !== 0 && (
+        <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-primary-700 text-white rounded-lg hover:bg-primary-800">
+                Signaler un incident
+        </button>
+       )}
+      </div>
 
         {error && <div className="mb-4 bg-red-50 border border-red-200 text-accent-red px-4 py-3 rounded-lg">{error}</div>}
 
@@ -132,25 +161,35 @@ export default function SignalementIncident() {
                   placeholder="Décrivez l'incident en détail..."
                   className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-accent-slate">ID Local</label>
-                  <input type="number" value={formData.local_id} onChange={(e) => setFormData({...formData, local_id: e.target.value})}
-                    className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500" />
+              {contrats.length === 0 ? (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm text-orange-700">
+                  <AlertTriangle className="h-4 w-4 inline mr-1" />
+                  Vous n'avez aucun contrat actif. Impossible de signaler un incident pour le moment.
                 </div>
-                <div>
-                  <label className="block text-sm font-semibold text-accent-slate">ID Contrat</label>
-                  <input type="number" value={formData.contrat_id} onChange={(e) => setFormData({...formData, contrat_id: e.target.value})}
-                    className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500" />
+              ) : contrats.length === 1 ? (
+                <div className="bg-accent-lighter border border-accent-light rounded-lg p-3 text-sm text-accent-slate">
+                  <span className="font-medium">Local :</span> {contrats[0].local_reference || `N°${contrats[0].local_id}`} — <span className="font-medium">Contrat :</span> {contrats[0].reference}
                 </div>
-              </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-semibold text-accent-slate">Sélectionner le contrat *</label>
+                  <select required value={formData.contrat_id} onChange={(e) => {
+                    const c = contrats.find(c => c.id === parseInt(e.target.value))
+                    setFormData({ ...formData, contrat_id: e.target.value, local_id: c?.local_id || '' })
+                  }}
+                    className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500">
+                    <option value="">Sélectionner...</option>
+                    {contrats.map(c => <option key={c.id} value={c.id}>{c.reference} — {c.local_reference || `Local N°${c.local_id}`}</option>)}
+                  </select>
+                </div>
+              )}
               <div className="bg-accent-lighter border border-accent-light rounded-lg p-3 text-sm text-accent-slate">
                 <Camera className="h-4 w-4 inline mr-1" />
                 L'upload de photos sera disponible dans une prochaine version.
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-accent-slate border border-accent-light rounded-lg hover:bg-accent-lighter">Annuler</button>
-                <button type="submit" disabled={actionLoading} className="px-4 py-2 bg-primary-700 text-white rounded-lg hover:bg-primary-800 disabled:opacity-50">
+                <button type="submit" disabled={actionLoading || contrats.length === 0 || !formData.contrat_id} className="px-4 py-2 bg-primary-700 text-white rounded-lg hover:bg-primary-800 disabled:opacity-50">
                   {actionLoading ? 'Envoi...' : 'Signaler'}
                 </button>
               </div>

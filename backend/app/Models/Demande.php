@@ -115,6 +115,16 @@ class Demande extends Model
         return $this->db->query($sql)->fetchAll();
     }
 
+    public function getForDCUVInstruction(): array
+    {
+        $sql = "SELECT d.*, u.prenom, u.nom, u.email
+                FROM {$this->table} d
+                LEFT JOIN utilisateurs u ON d.user_id = u.id
+                WHERE d.statut IN ('recevable', 'en_instruction')
+                ORDER BY d.updated_at ASC";
+        return $this->db->query($sql)->fetchAll();
+    }
+
     public function getRecevables(): array
     {
         $sql = "SELECT d.*, u.prenom, u.nom, u.email

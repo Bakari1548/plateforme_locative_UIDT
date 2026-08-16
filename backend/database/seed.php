@@ -13,7 +13,7 @@ $prenomsHommes = ['Amadou', 'Moussa', 'Ibrahima', 'Ousmane', 'Modou', 'Babacar',
 $prenomsFemmes = ['Fatou', 'Aïssatou', 'Mariama', 'Ndeye', 'Awa', 'Khadija', 'Aminata', 'Sokhna', 'Astou', 'Fatimata', 'Bineta', 'Coumba', 'Dieynaba', 'Rokhaya', 'Adama', 'Yacine', 'Marième', 'Aida', 'Ngoné', 'Oumou'];
 $noms = ['Diop', 'Ndiaye', 'Fall', 'Sow', 'Diallo', 'Ba', 'Gueye', 'Sarr', 'Cissé', 'Faye', 'Mbaye', 'Sy', 'Kane', 'Touré', 'Diouf', 'Seck', 'Camara', 'Thiam', 'Niang', 'Wade', 'Sagna', 'Mendy', 'Badji', 'Konaté'];
 
-$zonesDakar = ['Plateau', 'Médina', 'Yoff', 'Parcelles Assainies', 'Sicap Liberté', 'Grand Yoff', 'Ouakam', 'Fann', 'Ngor', 'Pikine', 'Guédiawaye', 'Rufisque', 'HLM', 'Point E'];
+$zonesDakar = ['Hotel du Rail', 'Site VCN - B1', 'Site VCN - B2', 'Site VCN - B3', 'Site VCN - B4', 'Site VCN - B5', 'Site VCN - B6', 'Site VCN - B7', 'Site VCN - B8', 'Site VCN - B9', 'Site VCN - B10', 'Site VCN - B11', 'Site VCN - B12'];
 
 $professions = ['Restaurateur', 'Commerçant', 'Multiservices', 'Coiffeur', 'Libraire', 'Cybercafé'];
 
@@ -129,13 +129,13 @@ try {
         $zone = $zonesDakar[array_rand($zonesDakar)];
         $statut = ['disponible', 'occupe', 'occupe', 'occupe', 'en_maintenance'][array_rand(['disponible', 'occupe', 'occupe', 'occupe', 'en_maintenance'])];
         $insertLocal->execute([
-            'ref' => 'VCN-' . str_pad((string) $i, 3, '0', STR_PAD_LEFT),
+            'ref' => 'LOC-' . str_pad((string) $i, 3, '0', STR_PAD_LEFT),
             'type' => $type,
             'usage' => $usagesByType[$type],
             'statut' => $statut,
-            'zone' => 'Site VCN - ' . $zone,
+            'zone' => $zone,
             'surface' => rand(8, 60),
-            'description' => 'Local de type ' . $type . ' situé zone ' . $zone,
+            'description' => 'Local de type ' . $type . ' ' . $zone,
             'capacite' => rand(2, 30),
             'loyer' => rand(15, 80) * 1000 // FCFA
         ]);

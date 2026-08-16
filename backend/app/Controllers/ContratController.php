@@ -184,23 +184,22 @@ class ContratController
             return ['error' => 'Non autorisé'];
         }
 
-        if ($contrat['statut'] !== 'en_attente_signature' && $contrat['statut'] !== 'brouillon') {
-            return ['error' => 'Contrat non disponible pour signature'];
+        if ($contrat['statut'] !== 'en_attente_signature') {
+            return ['error' => 'Contrat non disponible pour acceptation'];
         }
 
         try {
             $this->contratModel->signByLocataire($id);
             $updated = $this->contratModel->find($id);
             
-            // If both signed, activate
-            if ($updated['signe_par_locataire'] && $updated['signe_par_dcuv']) {
-                $this->contratModel->activate($id);
-                $updated = $this->contratModel->find($id);
+            // Update local status to occupied
+            if ($updated['local_id']) {
+                $this->localModel->updateStatut($updated['local_id'], 'occupe');
             }
             
             return [
                 'success' => true,
-                'message' => 'Contrat signé par le locataire',
+                'message' => 'Contrat accepté et activé',
                 'contrat' => $updated
             ];
         } catch (\Exception $e) {
@@ -294,6 +293,13 @@ class ContratController
         }
 
         try {
+            if (!empty($data['local_id'])) {
+                $local = $this->localModel->find($data['local_id']);
+                if ($local) {
+                    $data['montant_loyer'] = $local['loyer_mensuel'];
+                    $this->localModel->updateStatut($data['local_id'], 'reserve');
+                }
+            }
             $this->contratModel->update($id, $data);
             $updated = $this->contratModel->getWithDetails($id);
             
@@ -349,5 +355,40 @@ class ContratController
     {
         $decisions = $this->decisionModel->getValidatedWithoutContrat();
         return ['success' => true, 'decisions' => $decisions, 'count' => count($decisions)];
+    }
+
+    public function getBrouillons(): array
+    {
+        $contrats = $this->contratModel->getBrouillons();
+        return ['success' => true, 'contrats' => $contrats, 'count' => count($contrats)];
+    }
+
+    public function sendToDirecteur(int $id): array
+    {
+        $contrat = $this->contratModel->find($id);
+        if (!$contrat) {
+            return ['error' => 'Contrat non trouvé'];
+        }
+
+        if ($contrat['statut'] !== 'brouillon') {
+            return ['error' => 'Seuls les contrats en brouillon peuvent être envoyés au Directeur'];
+        }
+
+        if (empty($contrat['date_debut']) || empty($contrat['montant_loyer'])) {
+            return ['error' => 'Veuillez remplir au moins la date de début et le montant du loyer avant d\'envoyer'];
+        }
+
+        try {
+            $this->contratModel->sendToDirecteur($id);
+            $updated = $this->contratModel->getWithDetails($id);
+            
+            return [
+                'success' => true,
+                'message' => 'Contrat envoyé au Directeur pour validation',
+                'contrat' => $updated
+            ];
+        } catch (\Exception $e) {
+            return ['error' => 'Erreur: ' . $e->getMessage()];
+        }
     }
 }

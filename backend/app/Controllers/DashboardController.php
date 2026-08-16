@@ -10,6 +10,7 @@ use App\Models\Incident;
 use App\Models\ControleQHSE;
 use App\Models\Sanction;
 use App\Models\Notification;
+use App\Models\Intervention;
 
 class DashboardController
 {
@@ -21,6 +22,7 @@ class DashboardController
     private ControleQHSE $controleModel;
     private Sanction $sanctionModel;
     private Notification $notificationModel;
+    private Intervention $interventionModel;
 
     public function __construct()
     {
@@ -32,6 +34,7 @@ class DashboardController
         $this->controleModel = new ControleQHSE();
         $this->sanctionModel = new Sanction();
         $this->notificationModel = new Notification();
+        $this->interventionModel = new Intervention();
     }
 
     public function getGlobal(): array
@@ -47,6 +50,26 @@ class DashboardController
         $currentMonth = (int)date('m');
         $currentYear = (int)date('Y');
         $totalThisMonth = $this->paiementModel->getTotalByMonth($currentMonth, $currentYear);
+        $paiementEvolution = $this->paiementModel->getMonthlyEvolution(6);
+        $interventionStats = $this->interventionModel->getStats();
+
+        // Compteurs réels pour cartes Directeur
+        $contratsSignes = 0;
+        $contratsEnAttente = 0;
+        if (is_array($contratStats)) {
+            foreach ($contratStats as $row) {
+                if (in_array($row['statut'], ['signe', 'actif'])) $contratsSignes += (int)$row['count'];
+                if (in_array($row['statut'], ['en_attente_signature', 'en_validation_directeur'])) $contratsEnAttente += (int)$row['count'];
+            }
+        }
+        $decisionsPrises = 0;
+        $decisionsEnAttente = 0;
+        if (is_array($demandeStats)) {
+            foreach ($demandeStats as $row) {
+                if (in_array($row['statut'], ['attribue', 'non_attribue', 'rejete'])) $decisionsPrises += (int)$row['count'];
+                if (in_array($row['statut'], ['en_commission', 'en_instruction', 'recevable'])) $decisionsEnAttente += (int)$row['count'];
+            }
+        }
 
         return [
             'success' => true,
@@ -58,7 +81,13 @@ class DashboardController
                 'incidents' => $incidentStats,
                 'controles_qhse' => $controleStats,
                 'sanctions' => $sanctionStats,
-                'total_recettes_mois' => $totalThisMonth
+                'total_recettes_mois' => $totalThisMonth,
+                'paiement_evolution' => $paiementEvolution,
+                'interventions' => $interventionStats,
+                'decisions_prises' => $decisionsPrises,
+                'decisions_en_attente' => $decisionsEnAttente,
+                'contrats_signes' => $contratsSignes,
+                'contrats_en_attente' => $contratsEnAttente
             ]
         ];
     }
@@ -78,9 +107,31 @@ class DashboardController
                 $data['locaux'] = $this->localModel->getStats();
                 $data['incidents'] = $this->incidentModel->getStats();
                 $data['controles_qhse'] = $this->controleModel->getStats();
-                $data['sanctions'] = $this->sanctionModel->getStats();
                 $data['pending_demandes'] = count($this->demandeModel->getPendingInstruction());
                 $data['pending_contrats'] = count($this->contratModel->getPendingSignature());
+
+                // 4 cartes avec nombres réels
+                $demandeStats = $this->demandeModel->getStats();
+                $data['total_demandes'] = is_array($demandeStats) ? array_sum(array_map(fn($r) => (int)$r['count'], $demandeStats)) : 0;
+
+                $contratStats = $this->contratModel->getStats();
+                $data['contrats_signes'] = 0;
+                if (is_array($contratStats)) {
+                    foreach ($contratStats as $row) {
+                        if (in_array($row['statut'], ['signe', 'actif'])) $data['contrats_signes'] += (int)$row['count'];
+                    }
+                }
+
+                $controleStats = $this->controleModel->getStats();
+                $data['total_controles_qhse'] = (int)($controleStats['total'] ?? 0);
+
+                $interventionStats = $this->interventionModel->getStats();
+                $data['interventions_terminees'] = (int)($interventionStats['terminees'] ?? 0);
+                break;
+
+            case 'secretaireCSA':
+                $data['demandes'] = $this->demandeModel->getStats();
+                $data['pending_demandes'] = count($this->demandeModel->getPendingInstruction());
                 break;
 
             case 'agentRecouv':

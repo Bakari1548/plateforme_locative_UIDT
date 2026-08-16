@@ -109,6 +109,30 @@ class Paiement extends Model
         return $this->db->query($sql)->fetch();
     }
 
+    public function getMonthlyEvolution(int $months = 6): array
+    {
+        $results = [];
+        $currentMonth = (int)date('m');
+        $currentYear = (int)date('Y');
+
+        for ($i = $months - 1; $i >= 0; $i--) {
+            $mois = $currentMonth - $i;
+            $annee = $currentYear;
+            if ($mois <= 0) {
+                $mois += 12;
+                $annee--;
+            }
+            $total = $this->getTotalByMonth($mois, $annee);
+            $dateObj = \DateTime::createFromFormat('Y-n-j', "{$annee}-{$mois}-1");
+            $results[] = [
+                'mois' => $dateObj ? $dateObj->format('M Y') : "{$mois}/{$annee}",
+                'mois_court' => $dateObj ? $dateObj->format('M') : "{$mois}",
+                'total' => $total,
+            ];
+        }
+        return $results;
+    }
+
     public function getOverdueLocataires(): array
     {
         $sql = "SELECT DISTINCT u.id, u.prenom, u.nom, u.email, u.telephone,

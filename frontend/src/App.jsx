@@ -18,9 +18,12 @@ import ExamenDossiers from './pages/Commission/ExamenDossiers'
 import ValidationDecisions from './pages/Directeur/ValidationDecisions'
 import EnregistrementPaiement from './pages/AgentRecouv/EnregistrementPaiement'
 import SignalementIncident from './pages/Locataire/SignalementIncident'
+import TransfertLocal from './pages/Locataire/TransfertLocal'
 import TechnicienBoard from './pages/Technicien/TableauBord'
 import ControleQHSE from './pages/DCUV/ControleQHSE'
 import SupervisionInterventions from './pages/DCUV/SupervisionInterventions'
+import TriDemandes from './pages/Secretaire/TriDemandes'
+import Notifications from './pages/Notifications'
 import GestionCourriers from './pages/Courriers/GestionCourriers'
 import AppLayout from './components/AppLayout'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -76,6 +79,11 @@ function App() {
             <AppLayout><SignalementIncident /></AppLayout>
           </ProtectedRoute>
         } />
+        <Route path="/transfert-local" element={
+          <ProtectedRoute roles={['locataire']}>
+            <AppLayout><TransfertLocal /></AppLayout>
+          </ProtectedRoute>
+        } />
 
         {/* DCUV routes */}
         <Route path="/dcuv/demandes" element={
@@ -104,10 +112,24 @@ function App() {
           </ProtectedRoute>
         } />
 
+        {/* Notifications route - accessible to all authenticated users */}
+        <Route path="/notifications" element={
+          <ProtectedRoute roles={['visiteur', 'locataire', 'dcuv', 'directeur', 'technicien', 'agentRecouv', 'secretaireCSA', 'admin']}>
+            <AppLayout><Notifications /></AppLayout>
+          </ProtectedRoute>
+        } />
+
         {/* Commission route */}
         <Route path="/commission" element={
           <ProtectedRoute roles={['secretaireCSA', 'admin']}>
             <AppLayout><ExamenDossiers /></AppLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* Secrétaire CSA route */}
+        <Route path="/secretaire/demandes" element={
+          <ProtectedRoute roles={['secretaireCSA', 'admin']}>
+            <AppLayout><TriDemandes /></AppLayout>
           </ProtectedRoute>
         } />
 

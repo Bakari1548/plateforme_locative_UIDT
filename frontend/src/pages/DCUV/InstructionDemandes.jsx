@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../lib/api'
-import { ClipboardList, CheckCircle, XCircle, AlertCircle, Clock, FileText } from 'lucide-react'
+import { ClipboardList, CheckCircle, XCircle, AlertCircle, Clock, FileText, Paperclip } from 'lucide-react'
 
 const STATUT_CONFIG = {
   soumis: { label: 'Soumis', color: 'bg-blue-100 text-blue-700', icon: Clock },
@@ -22,6 +22,8 @@ export default function InstructionDemandes() {
   const [selectedDemande, setSelectedDemande] = useState(null)
   const [commentaire, setCommentaire] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
+  const [documents, setDocuments] = useState([])
+  const [docsLoading, setDocsLoading] = useState(false)
 
   useEffect(() => {
     loadDemandes()
@@ -32,7 +34,7 @@ export default function InstructionDemandes() {
     setError('')
     let result
     if (filter === 'pending') {
-      result = await api.demandes.pending()
+      result = await api.demandes.dcuvInstruction()
     } else {
       result = await api.demandes.list()
     }
@@ -54,9 +56,27 @@ export default function InstructionDemandes() {
     } else {
       setSelectedDemande(null)
       setCommentaire('')
+      setDocuments([])
       loadDemandes()
     }
     setActionLoading(false)
+  }
+
+  async function loadDocuments(demandeId) {
+    setDocsLoading(true)
+    const result = await api.demandes.getDocuments(demandeId)
+    if (result.error) {
+      setDocuments([])
+    } else {
+      setDocuments(result.documents || [])
+    }
+    setDocsLoading(false)
+  }
+
+  function handleSelectDemande(demande) {
+    setSelectedDemande(demande)
+    setCommentaire('')
+    loadDocuments(demande.id)
   }
 
   return (
@@ -125,16 +145,16 @@ export default function InstructionDemandes() {
                       </div>
                     </div>
                     <div className="flex flex-col gap-2 ml-4">
-                      {demande.statut === 'soumis' && (
+                      {(demande.statut === 'recevable' || demande.statut === 'soumis') && (
                         <button
-                          onClick={() => { setSelectedDemande(demande); setCommentaire('') }}
+                          onClick={() => handleSelectDemande(demande)}
                           className="px-3 py-1.5 bg-primary-700 text-white text-sm rounded-lg hover:bg-primary-800"
                         >
                           Instruire
                         </button>
                       )}
                       <button
-                        onClick={() => setSelectedDemande(demande)}
+                        onClick={() => handleSelectDemande(demande)}
                         className="px-3 py-1.5 text-accent-slate text-sm border border-accent-light rounded-lg hover:bg-accent-lighter"
                       >
                         Détails
@@ -159,6 +179,41 @@ export default function InstructionDemandes() {
                 <p><span className="font-medium">Motif:</span> {selectedDemande.motif}</p>
                 <p><span className="font-medium">Description:</span> {selectedDemande.description || '-'}</p>
                 <p><span className="font-medium">Statut actuel:</span> {selectedDemande.statut}</p>
+              </div>
+
+              {/* Documents */}
+              <div>
+                <label className="block text-sm font-semibold text-accent-slate mb-2">
+                  <Paperclip className="h-4 w-4 inline mr-1" />
+                  Documents joints
+                </label>
+                {docsLoading ? (
+                  <p className="text-sm text-accent-slate">Chargement des documents...</p>
+                ) : documents.length === 0 ? (
+                  <p className="text-sm text-accent-slate">Aucun document</p>
+                ) : (
+                  <div className="space-y-2">
+                    {documents.map((doc) => (
+                      <div key={doc.id} className="flex items-center justify-between p-2 bg-accent-lighter rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-primary-700" />
+                          <div>
+                            <p className="text-sm font-medium text-accent-dark">{doc.type_document === 'cni' ? 'Carte d\'identité (CNI)' : doc.type_document}</p>
+                            <p className="text-xs text-accent-slate">{doc.nom_fichier}</p>
+                          </div>
+                        </div>
+                        <a
+                          href={doc.url_fichier}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary-700 hover:underline"
+                        >
+                          Voir
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -212,7 +267,7 @@ export default function InstructionDemandes() {
 
               <div className="flex justify-end pt-2">
                 <button
-                  onClick={() => { setSelectedDemande(null); setCommentaire('') }}
+                  onClick={() => { setSelectedDemande(null); setCommentaire(''); setDocuments([]) }}
                   className="px-4 py-2 text-accent-slate border border-accent-light rounded-lg hover:bg-accent-lighter"
                 >
                   Fermer

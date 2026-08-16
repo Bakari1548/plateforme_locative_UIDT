@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { api } from '../../lib/api'
-import { FileSignature, FileText, Download, Clock, CheckCircle, XCircle, Home, Euro } from 'lucide-react'
+import { FileSignature, FileText, Download, Clock, CheckCircle, XCircle, Home, Euro, Eye, PenTool } from 'lucide-react'
+import ContratTemplate from '../../components/ContratTemplate'
 
 const STATUT_CONFIG = {
   brouillon: { label: 'Brouillon', color: 'bg-accent-lighter text-accent-slate', icon: FileText },
@@ -16,6 +17,9 @@ export default function MonContrat() {
   const [contrats, setContrats] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [actionLoading, setActionLoading] = useState(false)
+  const [pdfContrat, setPdfContrat] = useState(null)
+  const pdfRef = useRef(null)
 
   useEffect(() => { loadContrats() }, [])
 
@@ -25,6 +29,28 @@ export default function MonContrat() {
     const result = await api.contrats.my()
     if (result.error) { setError(result.error) } else { setContrats(result.contrats || []) }
     setLoading(false)
+  }
+
+  async function handleAccept(contratId) {
+    setActionLoading(true)
+    setError('')
+    const result = await api.contrats.signLocataire(contratId)
+    if (result.error) { setError(result.error) } else { loadContrats() }
+    setActionLoading(false)
+  }
+
+  async function handleExportPDF() {
+    if (!pdfRef.current) return
+    const html2pdf = (await import('html2pdf.js')).default
+    const opt = {
+      margin: [10, 10, 10, 10],
+      filename: `contrat_${pdfContrat.reference || pdfContrat.id}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    }
+    await html2pdf().set(opt).from(pdfRef.current).save()
+    setPdfContrat(null)
   }
 
   return (
@@ -94,33 +120,69 @@ export default function MonContrat() {
                   </div>
                 )}
 
-                {c.fichier_contrat && (
-                  <div className="border-t pt-4">
-                    <a
-                      href={c.fichier_contrat}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-primary-700 text-white text-sm rounded-lg hover:bg-primary-800"
-                    >
-                      <Download className="h-4 w-4" />
-                      Voir / Télécharger le contrat
-                    </a>
+                <div className="border-t pt-4 flex flex-wrap gap-2">
+                  <button onClick={() => setPdfContrat(c)}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-accent-slate text-sm border border-accent-light rounded-lg hover:bg-accent-lighter">
+                    <Eye className="h-4 w-4" /> Voir le contrat
+                  </button>
+                  <button onClick={() => setPdfContrat(c)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary-700 text-white text-sm rounded-lg hover:bg-primary-800">
+                    <Download className="h-4 w-4" /> Exporter PDF
+                  </button>
+                  {c.statut === 'en_attente_signature' && (
+                    <button onClick={() => handleAccept(c.id)} disabled={actionLoading}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50">
+                      <PenTool className="h-4 w-4" /> {actionLoading ? 'Acceptation...' : 'Accepter le contrat'}
+                    </button>
+                  )}
+                </div>
+
+                {c.statut === 'brouillon' && (
+                  <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600">
+                    Votre contrat est en cours de préparation par la DCUV.
                   </div>
                 )}
-
                 {c.statut === 'en_validation_directeur' && (
                   <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700">
-                    Votre contrat est en cours de validation par le Directeur. Vous pourrez le consulter une fois approuvé.
+                    Votre contrat est en cours de validation par le Directeur. Vous pourrez l'accepter une fois approuvé.
+                  </div>
+                )}
+                {c.statut === 'en_attente_signature' && (
+                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700">
+                    Votre contrat a été validé par le Directeur. Veuillez le lire et l'accepter pour l'activer.
                   </div>
                 )}
                 {c.statut === 'actif' && (
-                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-secondary-600">
-                    Votre contrat est actif. Vous pouvez effectuer vos paiements dans la section "Mes paiements".
+                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                    Votre contrat est actif. Vous pouvez effectuer vos paiements dans la section « Mes paiements ».
                   </div>
                 )}
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* PDF Export modal */}
+      {pdfContrat && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-accent-light">
+              <h2 className="text-lg font-semibold">Contrat: {pdfContrat.reference}</h2>
+              <div className="flex gap-2">
+                <button onClick={handleExportPDF}
+                  className="px-4 py-2 bg-primary-700 text-white text-sm rounded-lg hover:bg-primary-800 flex items-center gap-1">
+                  <Download className="h-4 w-4" /> Télécharger PDF
+                </button>
+                <button onClick={() => setPdfContrat(null)} className="text-accent-slate">
+                  <XCircle className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+            <div className="px-6 py-4">
+              <ContratTemplate ref={pdfRef} contrat={pdfContrat} />
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -1,13 +1,29 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useLocation, Navigate } from 'react-router-dom'
 import { Menu, X, Bell, LogOut } from 'lucide-react'
 import Logo from './Logo'
-import { getCurrentUser, logout } from '../lib/api'
+import { getCurrentUser, logout, api } from '../lib/api'
 
 export default function AppLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
   const user = getCurrentUser()
   const location = useLocation()
+
+  useEffect(() => {
+    if (user) {
+      loadUnreadCount()
+      const interval = setInterval(loadUnreadCount, 30000)
+      return () => clearInterval(interval)
+    }
+  }, [])
+
+  async function loadUnreadCount() {
+    const result = await api.notifications.unread()
+    if (!result.error) {
+      setUnreadCount(result.count || 0)
+    }
+  }
 
   if (!user) {
     return <Navigate to="/login" replace />
@@ -95,6 +111,11 @@ export default function AppLayout({ children }) {
           </div>
           <a href="/notifications" className="relative text-accent-slate hover:text-primary-700 transition">
             <Bell className="h-6 w-6" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 min-w-5 flex items-center justify-center px-1">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </a>
         </header>
 
@@ -118,6 +139,7 @@ function getNavForRole(role) {
       { path: '/mon-contrat', label: 'Mon contrat' },
       { path: '/paiements', label: 'Mes paiements' },
       { path: '/incidents', label: 'Signaler incident' },
+      { path: '/transfert-local', label: 'Transfert de local' },
     ],
     dcuv: [
       { path: '/dcuv/demandes', label: 'Instruction demandes' },
@@ -136,6 +158,11 @@ function getNavForRole(role) {
     ],
     agentRecouv: [
       { path: '/recouvrement', label: 'Recouvrement' },
+    ],
+    secretaireCSA: [
+      { path: '/secretaire/demandes', label: 'Tri des demandes' },
+      { path: '/commission', label: 'Commission' },
+      { path: '/courriers', label: 'Courriers' },
     ],
     admin: [
       { path: '/admin/users', label: 'Utilisateurs' },

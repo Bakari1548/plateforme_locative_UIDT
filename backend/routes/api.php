@@ -159,11 +159,20 @@ $router->get('/api/demandes/my', function() use ($router, $demandeController) {
 });
 
 $router->get('/api/demandes/pending', function() use ($router, $demandeController) {
-    $middleware = new RoleMiddleware([Roles::ADMIN, Roles::DCUV]);
+    $middleware = new RoleMiddleware([Roles::ADMIN, Roles::DCUV, Roles::SECRETAIRE_CSA]);
     if (!$middleware->handle()) {
         return;
     }
     $result = $demandeController->getPendingInstruction();
+    $router->sendJson($result, isset($result['error']) ? 400 : 200);
+});
+
+$router->get('/api/demandes/dcuv-instruction', function() use ($router, $demandeController) {
+    $middleware = new RoleMiddleware([Roles::ADMIN, Roles::DCUV]);
+    if (!$middleware->handle()) {
+        return;
+    }
+    $result = $demandeController->getForDCUVInstruction();
     $router->sendJson($result, isset($result['error']) ? 400 : 200);
 });
 
@@ -259,7 +268,7 @@ $router->get('/api/demandes/{id}/documents', function($params) use ($router, $de
 });
 
 $router->patch('/api/demandes/{id}/statut', function($params) use ($router, $demandeController) {
-    $middleware = new RoleMiddleware([Roles::ADMIN, Roles::DCUV, Roles::DIRECTEUR]);
+    $middleware = new RoleMiddleware([Roles::ADMIN, Roles::DCUV, Roles::DIRECTEUR, Roles::SECRETAIRE_CSA]);
     if (!$middleware->handle()) {
         return;
     }
@@ -364,6 +373,60 @@ $router->get('/api/contrats/my', function() use ($router, $contratController) {
     $router->sendJson($result, isset($result['error']) ? 400 : 200);
 });
 
+$router->get('/api/contrats/brouillons', function() use ($router, $contratController) {
+    $middleware = new RoleMiddleware([Roles::ADMIN, Roles::DCUV]);
+    if (!$middleware->handle()) {
+        return;
+    }
+    $result = $contratController->getBrouillons();
+    $router->sendJson($result, isset($result['error']) ? 400 : 200);
+});
+
+$router->post('/api/contrats/{id}/send-directeur', function($params) use ($router, $contratController) {
+    $middleware = new RoleMiddleware([Roles::ADMIN, Roles::DCUV]);
+    if (!$middleware->handle()) {
+        return;
+    }
+    $result = $contratController->sendToDirecteur((int)$params[0]);
+    $router->sendJson($result, isset($result['error']) ? 400 : 200);
+});
+
+$router->get('/api/contrats/pending', function() use ($router, $contratController) {
+    $middleware = new RoleMiddleware([Roles::ADMIN, Roles::DCUV]);
+    if (!$middleware->handle()) {
+        return;
+    }
+    $result = $contratController->getPendingSignature();
+    $router->sendJson($result, isset($result['error']) ? 400 : 200);
+});
+
+$router->get('/api/contrats/active', function() use ($router, $contratController) {
+    $middleware = new RoleMiddleware([Roles::ADMIN, Roles::DCUV, Roles::DIRECTEUR]);
+    if (!$middleware->handle()) {
+        return;
+    }
+    $result = $contratController->getActive();
+    $router->sendJson($result, isset($result['error']) ? 400 : 200);
+});
+
+$router->get('/api/contrats/stats', function() use ($router, $contratController) {
+    $middleware = new RoleMiddleware([Roles::ADMIN, Roles::DCUV, Roles::DIRECTEUR]);
+    if (!$middleware->handle()) {
+        return;
+    }
+    $result = $contratController->getStats();
+    $router->sendJson($result, isset($result['error']) ? 400 : 200);
+});
+
+$router->get('/api/contrats/pending-directeur-validation', function() use ($router, $contratController) {
+    $middleware = new RoleMiddleware([Roles::ADMIN, Roles::DCUV, Roles::DIRECTEUR]);
+    if (!$middleware->handle()) {
+        return;
+    }
+    $result = $contratController->getPendingDirecteurValidation();
+    $router->sendJson($result, isset($result['error']) ? 400 : 200);
+});
+
 $router->get('/api/contrats/{id}', function($params) use ($router, $contratController) {
     $middleware = new AuthMiddleware();
     if (!$middleware->handle()) {
@@ -427,42 +490,6 @@ $router->post('/api/contrats/{id}/resilier', function($params) use ($router, $co
     }
     $data = $router->getJsonInput();
     $result = $contratController->resiliate((int)$params[0], $data['motif'] ?? null);
-    $router->sendJson($result, isset($result['error']) ? 400 : 200);
-});
-
-$router->get('/api/contrats/pending', function() use ($router, $contratController) {
-    $middleware = new RoleMiddleware([Roles::ADMIN, Roles::DCUV]);
-    if (!$middleware->handle()) {
-        return;
-    }
-    $result = $contratController->getPendingSignature();
-    $router->sendJson($result, isset($result['error']) ? 400 : 200);
-});
-
-$router->get('/api/contrats/active', function() use ($router, $contratController) {
-    $middleware = new RoleMiddleware([Roles::ADMIN, Roles::DCUV, Roles::DIRECTEUR]);
-    if (!$middleware->handle()) {
-        return;
-    }
-    $result = $contratController->getActive();
-    $router->sendJson($result, isset($result['error']) ? 400 : 200);
-});
-
-$router->get('/api/contrats/stats', function() use ($router, $contratController) {
-    $middleware = new RoleMiddleware([Roles::ADMIN, Roles::DCUV, Roles::DIRECTEUR]);
-    if (!$middleware->handle()) {
-        return;
-    }
-    $result = $contratController->getStats();
-    $router->sendJson($result, isset($result['error']) ? 400 : 200);
-});
-
-$router->get('/api/contrats/pending-directeur-validation', function() use ($router, $contratController) {
-    $middleware = new RoleMiddleware([Roles::ADMIN, Roles::DIRECTEUR]);
-    if (!$middleware->handle()) {
-        return;
-    }
-    $result = $contratController->getPendingDirecteurValidation();
     $router->sendJson($result, isset($result['error']) ? 400 : 200);
 });
 
@@ -590,13 +617,22 @@ $router->patch('/api/locaux/{id}/statut', function($params) use ($router, $local
 
 // Transferts routes
 $router->post('/api/transferts', function() use ($router, $localController) {
-    $middleware = new RoleMiddleware([Roles::ADMIN, Roles::DCUV]);
+    $middleware = new RoleMiddleware([Roles::ADMIN, Roles::DCUV, Roles::LOCATAIRE]);
     if (!$middleware->handle()) {
         return;
     }
     $data = $router->getJsonInput();
-    $result = $localController->createTransfert($data);
+    $result = $localController->createTransfert($data, $middleware->getUserId());
     $router->sendJson($result, isset($result['error']) ? 400 : 201);
+});
+
+$router->get('/api/transferts/my', function() use ($router, $localController) {
+    $middleware = new AuthMiddleware();
+    if (!$middleware->handle()) {
+        return;
+    }
+    $result = $localController->getMyTransferts($middleware->getUserId());
+    $router->sendJson($result, isset($result['error']) ? 400 : 200);
 });
 
 $router->get('/api/transferts/pending', function() use ($router, $localController) {
@@ -766,6 +802,15 @@ $router->get('/api/incidents/pending', function() use ($router, $incidentControl
         return;
     }
     $result = $incidentController->getPending();
+    $router->sendJson($result, isset($result['error']) ? 400 : 200);
+});
+
+$router->get('/api/incidents/active', function() use ($router, $incidentController) {
+    $middleware = new RoleMiddleware([Roles::TECHNICIEN, Roles::ADMIN]);
+    if (!$middleware->handle()) {
+        return;
+    }
+    $result = $incidentController->getActiveForTechnicien($middleware->getUserId());
     $router->sendJson($result, isset($result['error']) ? 400 : 200);
 });
 

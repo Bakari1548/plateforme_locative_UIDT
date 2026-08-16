@@ -22,6 +22,22 @@ class TransfertLocal extends Model
         return $stmt->fetchAll();
     }
 
+    public function findByUserId(int $userId): array
+    {
+        $sql = "SELECT t.*, l.reference as local_reference, l.type as local_type, l.zone, l.surface,
+                u1.prenom as ancien_prenom, u1.nom as ancien_nom,
+                u2.prenom as nouveau_prenom, u2.nom as nouveau_nom
+                FROM {$this->table} t
+                JOIN locaux l ON t.local_id = l.id
+                LEFT JOIN utilisateurs u1 ON t.ancien_locataire_id = u1.id
+                JOIN utilisateurs u2 ON t.nouveau_locataire_id = u2.id
+                WHERE t.ancien_locataire_id = :user_id OR t.nouveau_locataire_id = :user_id
+                ORDER BY t.created_at DESC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute(['user_id' => $userId]);
+        return $stmt->fetchAll();
+    }
+
     public function getPending(): array
     {
         $sql = "SELECT t.*, l.reference as local_reference,

@@ -4,7 +4,10 @@ import { Wrench, Clock, CheckCircle, X, AlertCircle, UserCog, Eye } from 'lucide
 
 const STATUT_COLORS = {
   signale: 'bg-yellow-100 text-yellow-700',
+  en_attente: 'bg-blue-100 text-blue-700',
+  planifie: 'bg-purple-100 text-purple-700',
   en_cours: 'bg-orange-100 text-orange-700',
+  termine: 'bg-green-100 text-secondary-600',
   resolu: 'bg-green-100 text-secondary-600',
   rejete: 'bg-red-100 text-accent-red',
 }
@@ -144,12 +147,14 @@ export default function SupervisionInterventions() {
                         <CheckCircle className="h-4 w-4 inline mr-1" /> Valider
                       </button>
                     )}
-                    <button
-                      onClick={() => setAssignIncident(inc)}
-                      className="px-3 py-1.5 bg-primary-700 text-white text-sm rounded-lg hover:bg-primary-800"
-                    >
-                      <UserCog className="h-4 w-4 inline mr-1" /> Assigner
-                    </button>
+                    {inc.statut === 'en_attente' && (
+                      <button
+                        onClick={() => setAssignIncident(inc)}
+                        className="px-3 py-1.5 bg-primary-700 text-white text-sm rounded-lg hover:bg-primary-800"
+                      >
+                        <UserCog className="h-4 w-4 inline mr-1" /> Assigner
+                      </button>
+                    )}
                     <button
                       onClick={() => setSelected(inc)}
                       className="px-3 py-1.5 text-accent-slate text-sm border border-accent-light rounded-lg hover:bg-accent-lighter"

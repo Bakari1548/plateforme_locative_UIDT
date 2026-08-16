@@ -6,6 +6,9 @@ use App\Models\Demande;
 use App\Models\Document;
 use App\Models\User;
 use App\Models\Decision;
+use App\Models\Notification;
+use App\Models\Contrat;
+use App\Models\Local;
 
 class DemandeController
 {
@@ -13,6 +16,9 @@ class DemandeController
     private Document $documentModel;
     private User $userModel;
     private Decision $decisionModel;
+    private Notification $notificationModel;
+    private Contrat $contratModel;
+    private Local $localModel;
 
     public function __construct()
     {
@@ -20,6 +26,9 @@ class DemandeController
         $this->documentModel = new Document();
         $this->userModel = new User();
         $this->decisionModel = new Decision();
+        $this->notificationModel = new Notification();
+        $this->contratModel = new Contrat();
+        $this->localModel = new Local();
     }
 
     public function create(int $userId, array $data): array
@@ -90,6 +99,15 @@ class DemandeController
             ]);
             
             $updatedDemande = $this->demandeModel->find($demandeId);
+
+            // Notify the secrétaire CSA that a new demand has been submitted
+            $this->notificationModel->createForRole(
+                'secretaireCSA',
+                'demande',
+                'Nouvelle demande soumise',
+                "La demande {$updatedDemande['numero_suivi']} a été soumise et nécessite un tri.",
+                ['demande_id' => $demandeId]
+            );
             
             return [
                 'success' => true,
@@ -110,7 +128,8 @@ class DemandeController
         }
 
         // Check access permissions
-        if ($userRole !== 'admin' && $userRole !== 'dcuv' && $demande['user_id'] !== $userId) {
+        $allowedRoles = ['admin', 'dcuv', 'directeur', 'secretaireCSA'];
+        if (!in_array($userRole, $allowedRoles) && $demande['user_id'] !== $userId) {
             return ['error' => 'Non autorisé'];
         }
 
@@ -124,7 +143,8 @@ class DemandeController
 
     public function index(int $userId, string $userRole): array
     {
-        if ($userRole === 'admin' || $userRole === 'dcuv') {
+        $staffRoles = ['admin', 'dcuv', 'directeur', 'secretaireCSA'];
+        if (in_array($userRole, $staffRoles)) {
             $demandes = $this->demandeModel->all();
         } else {
             $demandes = $this->demandeModel->findByUserId($userId);
@@ -146,12 +166,13 @@ class DemandeController
         }
 
         // Check permissions
-        if ($userRole !== 'admin' && $userRole !== 'dcuv' && $demande['user_id'] !== $userId) {
+        $staffRoles = ['admin', 'dcuv', 'directeur', 'secretaireCSA'];
+        if (!in_array($userRole, $staffRoles) && $demande['user_id'] !== $userId) {
             return ['error' => 'Non autorisé'];
         }
 
         // Only allow updates on brouillon status for regular users
-        if ($userRole !== 'admin' && $userRole !== 'dcuv' && $demande['statut'] !== 'brouillon') {
+        if (!in_array($userRole, $staffRoles) && $demande['statut'] !== 'brouillon') {
             return ['error' => 'Impossible de modifier une demande soumise'];
         }
 
@@ -177,6 +198,8 @@ class DemandeController
             return ['error' => 'Demande non trouvée'];
         }
 
+        $oldStatut = $demande['statut'];
+
         try {
             $this->demandeModel->updateStatut($id, $statut, $instructeurId, $commentaire);
             $updatedDemande = $this->demandeModel->find($id);
@@ -191,7 +214,39 @@ class DemandeController
                 if (!$existingDecision) {
                     $this->decisionModel->createAutoValidated($id, $instructeurId, 'attribue');
                 }
+
+                // Auto-generate contrat brouillon
+                $existingContrat = $this->contratModel->findByDemandeId($id);
+                if (!$existingContrat) {
+                    $reference = $this->contratModel->generateReference();
+                    $localId = $demande['local_id'] ?? null;
+                    $montantLoyer = null;
+                    if ($localId) {
+                        $local = $this->localModel->find($localId);
+                        if ($local) {
+                            $montantLoyer = $local['loyer_mensuel'];
+                            $this->localModel->updateStatut($localId, 'reserve');
+                        }
+                    }
+                    $contratData = [
+                        'reference' => $reference,
+                        'demande_id' => $id,
+                        'local_id' => $localId,
+                        'locataire_id' => $demande['user_id'],
+                        'date_debut' => date('Y-m-d'),
+                        'date_fin' => null,
+                        'montant_loyer' => $montantLoyer,
+                        'periodicite' => 'mensuel',
+                        'caution' => 0,
+                        'conditions_particulieres' => null,
+                        'statut' => 'brouillon'
+                    ];
+                    $this->contratModel->create($contratData);
+                }
             }
+
+            // Send notifications based on status change
+            $this->sendStatusNotifications($id, $oldStatut, $statut, $demande, $commentaire);
             
             return [
                 'success' => true,
@@ -200,6 +255,122 @@ class DemandeController
             ];
         } catch (\Exception $e) {
             return ['error' => 'Erreur lors de la mise à jour du statut: ' . $e->getMessage()];
+        }
+    }
+
+    private function sendStatusNotifications(int $id, string $oldStatut, string $newStatut, array $demande, ?string $commentaire): void
+    {
+        $numeroSuivi = $demande['numero_suivi'] ?? "#{$id}";
+
+        switch ($newStatut) {
+            case 'incomplet':
+                // Notify the demandeur that their demand is incomplete
+                $this->notificationModel->createForUser(
+                    $demande['user_id'],
+                    'demande',
+                    'Demande incomplète',
+                    "Votre demande {$numeroSuivi} est incomplète." . ($commentaire ? " Motif: {$commentaire}" : ''),
+                    ['demande_id' => $id]
+                );
+                break;
+
+            case 'recevable':
+                // Notify DCUV that a demand is recevable and ready for instruction
+                $this->notificationModel->createForRole(
+                    'dcuv',
+                    'demande',
+                    'Demande recevable à instruire',
+                    "La demande {$numeroSuivi} a été marquée recevable par le secrétariat.",
+                    ['demande_id' => $id]
+                );
+                // Notify the demandeur
+                $this->notificationModel->createForUser(
+                    $demande['user_id'],
+                    'demande',
+                    'Demande recevable',
+                    "Votre demande {$numeroSuivi} a été jugée recevable et est en cours d'instruction.",
+                    ['demande_id' => $id]
+                );
+                break;
+
+            case 'en_instruction':
+                // Notify the demandeur
+                $this->notificationModel->createForUser(
+                    $demande['user_id'],
+                    'demande',
+                    'Demande en instruction',
+                    "Votre demande {$numeroSuivi} est en cours d'instruction par le DCUV.",
+                    ['demande_id' => $id]
+                );
+                break;
+
+            case 'rejete':
+                // Notify the demandeur
+                $this->notificationModel->createForUser(
+                    $demande['user_id'],
+                    'demande',
+                    'Demande rejetée',
+                    "Votre demande {$numeroSuivi} a été rejetée." . ($commentaire ? " Motif: {$commentaire}" : ''),
+                    ['demande_id' => $id]
+                );
+                // Notify the Directeur
+                $this->notificationModel->createForRole(
+                    'directeur',
+                    'decision',
+                    'Demande rejetée',
+                    "La demande {$numeroSuivi} a été rejetée.",
+                    ['demande_id' => $id]
+                );
+                break;
+
+            case 'attribue':
+                // Notify the demandeur
+                $this->notificationModel->createForUser(
+                    $demande['user_id'],
+                    'demande',
+                    'Demande approuvée',
+                    "Votre demande {$numeroSuivi} a été approuvée. Un contrat sera créé prochainement.",
+                    ['demande_id' => $id]
+                );
+                // Notify the Directeur of the final decision
+                $this->notificationModel->createForRole(
+                    'directeur',
+                    'decision',
+                    'Décision finale: demande approuvée',
+                    "La demande {$numeroSuivi} a été approuvée et attribuée.",
+                    ['demande_id' => $id]
+                );
+                break;
+
+            case 'non_attribue':
+                // Notify the demandeur
+                $this->notificationModel->createForUser(
+                    $demande['user_id'],
+                    'demande',
+                    'Demande non attribuée',
+                    "Votre demande {$numeroSuivi} n'a pas été attribuée." . ($commentaire ? " Motif: {$commentaire}" : ''),
+                    ['demande_id' => $id]
+                );
+                // Notify the Directeur
+                $this->notificationModel->createForRole(
+                    'directeur',
+                    'decision',
+                    'Décision finale: non attribuée',
+                    "La demande {$numeroSuivi} n'a pas été attribuée.",
+                    ['demande_id' => $id]
+                );
+                break;
+
+            case 'en_commission':
+                // Notify the demandeur
+                $this->notificationModel->createForUser(
+                    $demande['user_id'],
+                    'demande',
+                    'Demande en commission',
+                    "Votre demande {$numeroSuivi} a été transmise en commission.",
+                    ['demande_id' => $id]
+                );
+                break;
         }
     }
 
@@ -223,7 +394,8 @@ class DemandeController
         }
 
         // Check access permissions
-        if ($userRole !== 'admin' && $userRole !== 'dcuv' && $demande['user_id'] !== $userId) {
+        $allowedRoles = ['admin', 'dcuv', 'directeur', 'secretaireCSA'];
+        if (!in_array($userRole, $allowedRoles) && $demande['user_id'] !== $userId) {
             return ['error' => 'Non autorisé'];
         }
 
@@ -238,6 +410,17 @@ class DemandeController
     public function getPendingInstruction(): array
     {
         $demandes = $this->demandeModel->getPendingInstruction();
+        
+        return [
+            'success' => true,
+            'demandes' => $demandes,
+            'count' => count($demandes)
+        ];
+    }
+
+    public function getForDCUVInstruction(): array
+    {
+        $demandes = $this->demandeModel->getForDCUVInstruction();
         
         return [
             'success' => true,
@@ -372,7 +555,8 @@ class DemandeController
             return ['error' => 'Demande non trouvée'];
         }
 
-        if ($userRole !== 'admin' && $userRole !== 'dcuv' && $demande['user_id'] !== $userId) {
+        $allowedRoles = ['admin', 'dcuv', 'directeur', 'secretaireCSA'];
+        if (!in_array($userRole, $allowedRoles) && $demande['user_id'] !== $userId) {
             return ['error' => 'Non autorisé'];
         }
 

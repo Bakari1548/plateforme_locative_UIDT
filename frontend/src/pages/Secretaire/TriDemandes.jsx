@@ -1,37 +1,39 @@
 import { useState, useEffect } from 'react'
 import { api } from '../../lib/api'
-import { Shield, CheckCircle, XCircle, Clock, FileText, Gavel, X, Paperclip } from 'lucide-react'
+import { ClipboardList, CheckCircle, XCircle, AlertCircle, Clock, FileText, Paperclip, Inbox } from 'lucide-react'
 
 const STATUT_CONFIG = {
+  soumis: { label: 'Soumis', color: 'bg-blue-100 text-blue-700', icon: Clock },
+  en_instruction: { label: 'En instruction', color: 'bg-yellow-100 text-yellow-700', icon: AlertCircle },
   recevable: { label: 'Recevable', color: 'bg-green-100 text-secondary-600', icon: CheckCircle },
-  attribue: { label: 'Approuvé', color: 'bg-green-100 text-secondary-600', icon: CheckCircle },
-  non_attribue: { label: 'Non attribué', color: 'bg-orange-100 text-orange-700', icon: XCircle },
+  incomplet: { label: 'Incomplet', color: 'bg-orange-100 text-orange-700', icon: AlertCircle },
   rejete: { label: 'Rejeté', color: 'bg-red-100 text-accent-red', icon: XCircle },
+  en_commission: { label: 'En commission', color: 'bg-purple-100 text-purple-700', icon: Clock },
+  attribue: { label: 'Attribué', color: 'bg-green-100 text-secondary-600', icon: CheckCircle },
+  non_attribue: { label: 'Non attribué', color: 'bg-red-100 text-accent-red', icon: XCircle }
 }
 
-export default function ValidationDecisions() {
+export default function TriDemandes() {
   const [demandes, setDemandes] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [tab, setTab] = useState('recevables')
-  const [selected, setSelected] = useState(null)
+  const [filter, setFilter] = useState('pending')
+  const [selectedDemande, setSelectedDemande] = useState(null)
   const [commentaire, setCommentaire] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
   const [documents, setDocuments] = useState([])
   const [docsLoading, setDocsLoading] = useState(false)
 
-  useEffect(() => {
-    loadData()
-  }, [tab])
+  useEffect(() => { loadDemandes() }, [filter])
 
-  async function loadData() {
+  async function loadDemandes() {
     setLoading(true)
     setError('')
     let result
-    if (tab === 'recevables') {
-      result = await api.demandes.recevables()
+    if (filter === 'pending') {
+      result = await api.demandes.pending()
     } else {
-      result = await api.demandes.decided()
+      result = await api.demandes.list()
     }
     if (result.error) {
       setError(result.error)
@@ -39,21 +41,6 @@ export default function ValidationDecisions() {
       setDemandes(result.demandes || [])
     }
     setLoading(false)
-  }
-
-  async function handleDecision(demandeId, statut) {
-    setActionLoading(true)
-    setError('')
-    const result = await api.demandes.updateStatut(demandeId, statut, commentaire || null)
-    if (result.error) {
-      setError(result.error)
-    } else {
-      setSelected(null)
-      setCommentaire('')
-      setDocuments([])
-      loadData()
-    }
-    setActionLoading(false)
   }
 
   async function loadDocuments(demandeId) {
@@ -67,16 +54,31 @@ export default function ValidationDecisions() {
     setDocsLoading(false)
   }
 
-  function handleSelect(demande) {
-    setSelected(demande)
+  function handleSelectDemande(demande) {
+    setSelectedDemande(demande)
     setCommentaire('')
     loadDocuments(demande.id)
   }
 
+  async function handleStatutChange(demandeId, newStatut) {
+    setActionLoading(true)
+    setError('')
+    const result = await api.demandes.updateStatut(demandeId, newStatut, commentaire || null)
+    if (result.error) {
+      setError(result.error)
+    } else {
+      setSelectedDemande(null)
+      setCommentaire('')
+      setDocuments([])
+      loadDemandes()
+    }
+    setActionLoading(false)
+  }
+
   return (
     <div>
-      <h1 className="text-2xl font-extrabold text-accent-dark mb-1">Validation des décisions</h1>
-      <p className="text-sm text-accent-slate mb-6">Demandes recevables à approuver ou rejeter</p>
+      <h1 className="text-2xl font-extrabold text-accent-dark mb-1">Tri des demandes</h1>
+      <p className="text-sm text-accent-slate mb-6">Vérification de la recevabilité des demandes soumises</p>
 
       {error && (
         <div className="mb-4 bg-red-50 border border-red-200 text-accent-red px-4 py-3 rounded-lg">
@@ -86,20 +88,20 @@ export default function ValidationDecisions() {
 
       <div className="mb-6 flex gap-2">
         <button
-          onClick={() => setTab('recevables')}
+          onClick={() => setFilter('pending')}
           className={`px-4 py-2 rounded-lg text-sm font-medium ${
-            tab === 'recevables' ? 'bg-primary-700 text-white' : 'bg-white text-accent-slate border border-accent-light'
+            filter === 'pending' ? 'bg-primary-700 text-white' : 'bg-white text-accent-slate border border-accent-light'
           }`}
         >
-          En attente de décision
+          En attente de tri
         </button>
         <button
-          onClick={() => setTab('decided')}
+          onClick={() => setFilter('all')}
           className={`px-4 py-2 rounded-lg text-sm font-medium ${
-            tab === 'decided' ? 'bg-primary-700 text-white' : 'bg-white text-accent-slate border border-accent-light'
+            filter === 'all' ? 'bg-primary-700 text-white' : 'bg-white text-accent-slate border border-accent-light'
           }`}
         >
-          Décisions prises
+          Toutes les demandes
         </button>
       </div>
 
@@ -107,47 +109,53 @@ export default function ValidationDecisions() {
         <div className="bg-white shadow-sm rounded-lg p-8 text-center text-accent-slate">Chargement...</div>
       ) : demandes.length === 0 ? (
         <div className="bg-white shadow-sm rounded-lg p-8 text-center">
-          <Gavel className="h-12 w-12 text-accent-light mx-auto mb-3" />
-          <p className="text-accent-slate">
-            {tab === 'recevables' ? 'Aucune demande en attente de décision' : 'Aucune décision prise'}
-          </p>
+          <Inbox className="h-12 w-12 text-accent-light mx-auto mb-3" />
+          <p className="text-accent-slate">Aucune demande à trier</p>
         </div>
       ) : (
         <div className="space-y-4">
-          {demandes.map((d) => {
-            const config = STATUT_CONFIG[d.statut] || STATUT_CONFIG.recevable
+          {demandes.map((demande) => {
+            const config = STATUT_CONFIG[demande.statut] || STATUT_CONFIG.soumis
             const Icon = config.icon
             return (
-              <div key={d.id} className="bg-white shadow-sm rounded-lg p-6">
+              <div key={demande.id} className="bg-white shadow-sm rounded-lg p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <span className="text-lg font-semibold text-accent-dark">{d.numero_suivi}</span>
+                      <span className="text-lg font-semibold text-accent-dark">{demande.numero_suivi}</span>
                       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
                         <Icon className="h-3 w-3" />
                         {config.label}
                       </span>
                     </div>
                     <div className="text-sm text-accent-slate space-y-1">
-                      <p><span className="font-medium">Demandeur:</span> {d.prenom} {d.nom}</p>
-                      <p><span className="font-medium">Type:</span> {d.type_local}</p>
-                      <p><span className="font-medium">Motif:</span> {d.motif}</p>
-                      {d.description && <p><span className="font-medium">Description:</span> {d.description}</p>}
-                      {d.commentaire_instruction && (
+                      <p><span className="font-medium">Type:</span> {demande.type_local}</p>
+                      <p><span className="font-medium">Motif:</span> {demande.motif}</p>
+                      {demande.description && <p><span className="font-medium">Description:</span> {demande.description}</p>}
+                      <p><span className="font-medium">Soumise le:</span> {demande.date_soumission ? new Date(demande.date_soumission).toLocaleDateString('fr-FR') : '-'}</p>
+                      {demande.commentaire_instruction && (
                         <p className="mt-2 p-2 bg-accent-lighter rounded">
-                          <span className="font-medium">Commentaire DCUV:</span> {d.commentaire_instruction}
+                          <span className="font-medium">Commentaire:</span> {demande.commentaire_instruction}
                         </p>
                       )}
                     </div>
                   </div>
-                  {tab === 'recevables' && (
+                  <div className="flex flex-col gap-2 ml-4">
+                    {demande.statut === 'soumis' && (
+                      <button
+                        onClick={() => handleSelectDemande(demande)}
+                        className="px-3 py-1.5 bg-primary-700 text-white text-sm rounded-lg hover:bg-primary-800"
+                      >
+                        Trier
+                      </button>
+                    )}
                     <button
-                      onClick={() => handleSelect(d)}
-                      className="px-3 py-1.5 bg-primary-700 text-white text-sm rounded-lg hover:bg-primary-800"
+                      onClick={() => handleSelectDemande(demande)}
+                      className="px-3 py-1.5 text-accent-slate text-sm border border-accent-light rounded-lg hover:bg-accent-lighter"
                     >
-                      Décider
+                      Détails
                     </button>
-                  )}
+                  </div>
                 </div>
               </div>
             )
@@ -155,24 +163,19 @@ export default function ValidationDecisions() {
         </div>
       )}
 
-      {/* Decision modal */}
-      {selected && (
+      {/* Tri modal */}
+      {selectedDemande && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b border-accent-light">
-              <h2 className="text-lg font-semibold">Décision: {selected.numero_suivi}</h2>
+              <h2 className="text-lg font-semibold">Tri: {selectedDemande.numero_suivi}</h2>
             </div>
             <div className="px-6 py-4 space-y-4">
               <div className="text-sm text-accent-slate space-y-2">
-                <p><span className="font-medium">Demandeur:</span> {selected.prenom} {selected.nom}</p>
-                <p><span className="font-medium">Type:</span> {selected.type_local}</p>
-                <p><span className="font-medium">Motif:</span> {selected.motif}</p>
-                <p><span className="font-medium">Description:</span> {selected.description || '-'}</p>
-                {selected.commentaire_instruction && (
-                  <p className="p-2 bg-accent-lighter rounded">
-                    <span className="font-medium">Commentaire DCUV:</span> {selected.commentaire_instruction}
-                  </p>
-                )}
+                <p><span className="font-medium">Type:</span> {selectedDemande.type_local}</p>
+                <p><span className="font-medium">Motif:</span> {selectedDemande.motif}</p>
+                <p><span className="font-medium">Description:</span> {selectedDemande.description || '-'}</p>
+                <p><span className="font-medium">Statut actuel:</span> {selectedDemande.statut}</p>
               </div>
 
               {/* Documents */}
@@ -211,46 +214,42 @@ export default function ValidationDecisions() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-accent-slate">Commentaire (optionnel)</label>
+                <label className="block text-sm font-semibold text-accent-slate">Commentaire / Demande de compléments</label>
                 <textarea
                   rows={3}
                   value={commentaire}
                   onChange={(e) => setCommentaire(e.target.value)}
-                  placeholder="Motif de la décision..."
+                  placeholder="Précisez les documents manquants ou les compléments nécessaires..."
                   className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500"
                 />
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => handleDecision(selected.id, 'attribue')}
-                  disabled={actionLoading}
-                  className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
-                >
-                  <CheckCircle className="h-4 w-4 inline mr-1" />
-                  Approuver (Attribuer)
-                </button>
-                <button
-                  onClick={() => handleDecision(selected.id, 'non_attribue')}
-                  disabled={actionLoading}
-                  className="px-4 py-2 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700"
-                >
-                  <XCircle className="h-4 w-4 inline mr-1" />
-                  Non attribué
-                </button>
-                <button
-                  onClick={() => handleDecision(selected.id, 'rejete')}
-                  disabled={actionLoading}
-                  className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700"
-                >
-                  <XCircle className="h-4 w-4 inline mr-1" />
-                  Rejeter
-                </button>
+                {selectedDemande.statut === 'soumis' && (
+                  <>
+                    <button
+                      onClick={() => handleStatutChange(selectedDemande.id, 'recevable')}
+                      disabled={actionLoading}
+                      className="px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
+                    >
+                      <CheckCircle className="h-4 w-4 inline mr-1" />
+                      Recevable (envoyer au DCUV)
+                    </button>
+                    <button
+                      onClick={() => handleStatutChange(selectedDemande.id, 'incomplet')}
+                      disabled={actionLoading}
+                      className="px-3 py-2 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700"
+                    >
+                      <AlertCircle className="h-4 w-4 inline mr-1" />
+                      Incomplet (demander compléments)
+                    </button>
+                  </>
+                )}
               </div>
 
               <div className="flex justify-end pt-2">
                 <button
-                  onClick={() => { setSelected(null); setCommentaire(''); setDocuments([]) }}
+                  onClick={() => { setSelectedDemande(null); setCommentaire(''); setDocuments([]) }}
                   className="px-4 py-2 text-accent-slate border border-accent-light rounded-lg hover:bg-accent-lighter"
                 >
                   Fermer

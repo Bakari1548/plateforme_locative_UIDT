@@ -13,6 +13,17 @@ class Incident extends Model
         return sprintf('INC-%s-%04d', $year, $count);
     }
 
+    public function all(): array
+    {
+        $sql = "SELECT i.*, u.prenom, u.nom, u.email, u.telephone,
+                l.reference as local_reference, l.type as local_type, l.zone
+                FROM {$this->table} i
+                LEFT JOIN utilisateurs u ON i.locataire_id = u.id
+                LEFT JOIN locaux l ON i.local_id = l.id
+                ORDER BY i.created_at DESC";
+        return $this->db->query($sql)->fetchAll();
+    }
+
     public function findByLocataireId(int $locataireId): array
     {
         $sql = "SELECT i.*, l.reference as local_reference
@@ -32,6 +43,20 @@ class Incident extends Model
                 JOIN utilisateurs u ON i.locataire_id = u.id
                 LEFT JOIN locaux l ON i.local_id = l.id
                 WHERE i.technicien_id = :technicien_id
+                ORDER BY i.created_at DESC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute(['technicien_id' => $technicienId]);
+        return $stmt->fetchAll();
+    }
+
+    public function findActiveByTechnicienId(int $technicienId): array
+    {
+        $sql = "SELECT i.*, u.prenom, u.nom, l.reference as local_reference
+                FROM {$this->table} i
+                JOIN utilisateurs u ON i.locataire_id = u.id
+                LEFT JOIN locaux l ON i.local_id = l.id
+                WHERE i.technicien_id = :technicien_id
+                AND i.statut NOT IN ('termine', 'cloture')
                 ORDER BY i.created_at DESC";
         $stmt = $this->db->prepare($sql);
         $stmt->execute(['technicien_id' => $technicienId]);
@@ -78,7 +103,7 @@ class Incident extends Model
     public function assignTechnicien(int $id, int $technicienId): bool
     {
         $sql = "UPDATE {$this->table} 
-                SET technicien_id = :technicien_id, statut = 'pris_en_charge',
+                SET technicien_id = :technicien_id, statut = 'planifie',
                     date_prise_en_charge = CURRENT_TIMESTAMP
                 WHERE id = :id";
         $stmt = $this->db->prepare($sql);
@@ -102,12 +127,12 @@ class Incident extends Model
 
     public function updateStatut(int $id, string $statut): bool
     {
-        $validStatuts = ['signale', 'en_attente', 'pris_en_charge', 'en_cours', 'resolu', 'cloture', 'rejete'];
+        $validStatuts = ['signale', 'en_attente', 'planifie', 'en_cours', 'termine', 'cloture', 'rejete'];
         if (!in_array($statut, $validStatuts)) {
             return false;
         }
 
-        $dateCloture = in_array($statut, ['resolu', 'cloture']) ? ', date_cloture = CURRENT_TIMESTAMP' : '';
+        $dateCloture = in_array($statut, ['termine', 'cloture']) ? ', date_cloture = CURRENT_TIMESTAMP' : '';
 
         $sql = "UPDATE {$this->table} SET statut = :statut{$dateCloture} WHERE id = :id";
         $stmt = $this->db->prepare($sql);
