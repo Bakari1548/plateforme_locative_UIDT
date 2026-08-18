@@ -25,9 +25,11 @@ class Contrat extends Model
     public function findByLocataireId(int $locataireId): array
     {
         $sql = "SELECT ctr.*, d.numero_suivi, d.type_local,
-                l.reference as local_reference, l.type as local_type, l.zone, l.surface
+                u.prenom, u.nom, u.email, u.telephone, u.profession, u.numero_cni,
+                l.reference as local_reference, l.type as local_type, l.zone, l.surface, l.usage as local_usage
                 FROM {$this->table} ctr
                 JOIN demandes d ON ctr.demande_id = d.id
+                JOIN utilisateurs u ON ctr.locataire_id = u.id
                 LEFT JOIN locaux l ON ctr.local_id = l.id
                 WHERE ctr.locataire_id = :locataire_id ORDER BY ctr.created_at DESC";
         $stmt = $this->db->prepare($sql);

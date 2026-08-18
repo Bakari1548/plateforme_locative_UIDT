@@ -50,6 +50,66 @@ class UserController
         ];
     }
 
+    public function create(array $data): array
+    {
+        $required = ['prenom', 'nom', 'email', 'password', 'role'];
+        foreach ($required as $field) {
+            if (empty($data[$field])) {
+                return ['error' => "Le champ {$field} est requis"];
+            }
+        }
+
+        if (strlen($data['password']) < 8) {
+            return ['error' => 'Le mot de passe doit contenir au moins 8 caractères'];
+        }
+
+        if (!in_array($data['role'], Roles::getAllRoles())) {
+            return ['error' => 'Rôle invalide'];
+        }
+
+        if (!empty($data['statut']) && !in_array($data['statut'], ['actif', 'inactif', 'suspendu'])) {
+            return ['error' => 'Statut invalide'];
+        }
+
+        $existing = $this->userModel->findByEmail($data['email']);
+        if ($existing) {
+            return ['error' => 'Cet email est déjà utilisé'];
+        }
+
+        if (!empty($data['numero_cni'])) {
+            $existingCni = $this->userModel->findByCNI($data['numero_cni']);
+            if ($existingCni) {
+                return ['error' => 'Ce numéro CNI est déjà utilisé'];
+            }
+        }
+
+        $userData = [
+            'prenom' => $data['prenom'],
+            'nom' => $data['nom'],
+            'email' => $data['email'],
+            'password' => $data['password'],
+            'role' => $data['role'],
+            'statut' => $data['statut'] ?? 'actif',
+            'profession' => $data['profession'] ?? null,
+            'numero_cni' => $data['numero_cni'] ?? null,
+            'telephone' => $data['telephone'] ?? null
+        ];
+
+        try {
+            $id = $this->userModel->create($userData);
+            $user = $this->userModel->find($id);
+            unset($user['password_hash']);
+
+            return [
+                'success' => true,
+                'message' => 'Utilisateur créé avec succès',
+                'user' => $user
+            ];
+        } catch (\Exception $e) {
+            return ['error' => 'Erreur lors de la création: ' . $e->getMessage()];
+        }
+    }
+
     public function update(int $id, array $data): array
     {
         $user = $this->userModel->find($id);

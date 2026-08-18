@@ -11,6 +11,7 @@ use App\Models\ControleQHSE;
 use App\Models\Sanction;
 use App\Models\Notification;
 use App\Models\Intervention;
+use App\Models\User;
 
 class DashboardController
 {
@@ -23,6 +24,7 @@ class DashboardController
     private Sanction $sanctionModel;
     private Notification $notificationModel;
     private Intervention $interventionModel;
+    private User $userModel;
 
     public function __construct()
     {
@@ -35,6 +37,7 @@ class DashboardController
         $this->sanctionModel = new Sanction();
         $this->notificationModel = new Notification();
         $this->interventionModel = new Intervention();
+        $this->userModel = new User();
     }
 
     public function getGlobal(): array
@@ -87,7 +90,9 @@ class DashboardController
                 'decisions_prises' => $decisionsPrises,
                 'decisions_en_attente' => $decisionsEnAttente,
                 'contrats_signes' => $contratsSignes,
-                'contrats_en_attente' => $contratsEnAttente
+                'contrats_en_attente' => $contratsEnAttente,
+                'total_users' => $this->userModel->count(),
+                'total_locaux' => $this->localModel->count()
             ]
         ];
     }
@@ -153,6 +158,16 @@ class DashboardController
                 $data['paiements'] = $this->paiementModel->findByLocataireId($userId);
                 $data['incidents'] = $this->incidentModel->findByLocataireId($userId);
                 $data['sanctions'] = $this->sanctionModel->findByLocataireId($userId);
+
+                $contrats = $this->contratModel->findByLocataireId($userId);
+                $controlesQhse = [];
+                foreach ($contrats as $contrat) {
+                    if (!empty($contrat['local_id'])) {
+                        $controles = $this->controleModel->findByLocalId((int)$contrat['local_id']);
+                        $controlesQhse = array_merge($controlesQhse, $controles);
+                    }
+                }
+                $data['controles_qhse'] = $controlesQhse;
                 break;
 
             default:

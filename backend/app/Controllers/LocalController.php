@@ -46,16 +46,14 @@ class LocalController
 
     public function create(array $data): array
     {
-        $required = ['reference', 'type', 'usage'];
+        $required = ['type', 'usage'];
         foreach ($required as $field) {
             if (empty($data[$field])) {
                 return ['error' => "Le champ {$field} est requis"];
             }
         }
 
-        if ($this->localModel->findByReference($data['reference'])) {
-            return ['error' => 'Cette référence existe déjà'];
-        }
+        $data['reference'] = $this->localModel->generateReference();
 
         $validTypes = ['cantine', 'boutique', 'kiosque', 'bureau', 'autre'];
         if (!in_array($data['type'], $validTypes)) {

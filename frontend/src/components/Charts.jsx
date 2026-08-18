@@ -325,7 +325,7 @@ export function StatCard({ icon: Icon, label, value, sublabel, color = 'text-pri
   useEffect(() => { injectStyles() }, [])
 
   return (
-    <div className="stat-card-hover bg-white shadow-sm rounded-xl p-6 relative overflow-hidden">
+    <div className="stat-card-hover bg-white shadow-sm rounded-xl p-6 relative overflow-hidden h-full flex flex-col">
       <div className="stat-icon-bg inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary-50 mb-3">
         <Icon className={`h-6 w-6 ${color}`} />
       </div>

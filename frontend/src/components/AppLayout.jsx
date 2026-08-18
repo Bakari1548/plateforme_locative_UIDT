@@ -138,8 +138,10 @@ function getNavForRole(role) {
       { path: '/demandes', label: 'Ma demande' },
       { path: '/mon-contrat', label: 'Mon contrat' },
       { path: '/paiements', label: 'Mes paiements' },
+      { path: '/mes-controles-qhse', label: 'Normes QHSE' },
       { path: '/incidents', label: 'Signaler incident' },
       { path: '/transfert-local', label: 'Transfert de local' },
+      { path: '/courriers', label: 'Mes courriers' },
     ],
     dcuv: [
       { path: '/dcuv/demandes', label: 'Instruction demandes' },
@@ -152,6 +154,7 @@ function getNavForRole(role) {
     directeur: [
       { path: '/directeur', label: 'Validation décisions' },
       { path: '/dcuv/contrats', label: 'Contrats' },
+      { path: '/courriers', label: 'Courriers' },
     ],
     technicien: [
       { path: '/technicien', label: 'Mes interventions' },
@@ -169,6 +172,7 @@ function getNavForRole(role) {
       { path: '/dcuv/locaux', label: 'Locaux' },
       { path: '/dcuv/contrats', label: 'Contrats' },
       { path: '/recouvrement', label: 'Recouvrement' },
+      { path: '/courriers', label: 'Courriers' },
     ],
   }
   return nav[role] || []

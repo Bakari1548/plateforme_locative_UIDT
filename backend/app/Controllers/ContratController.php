@@ -296,7 +296,9 @@ class ContratController
             if (!empty($data['local_id'])) {
                 $local = $this->localModel->find($data['local_id']);
                 if ($local) {
-                    $data['montant_loyer'] = $local['loyer_mensuel'];
+                    if (empty($data['montant_loyer'])) {
+                        $data['montant_loyer'] = $local['loyer_mensuel'];
+                    }
                     $this->localModel->updateStatut($data['local_id'], 'reserve');
                 }
             }

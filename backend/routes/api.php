@@ -72,6 +72,16 @@ $router->get('/api/users/{id}', function($params) use ($router, $userController)
     $router->sendJson($result, isset($result['error']) ? 404 : 200);
 });
 
+$router->post('/api/users', function() use ($router, $userController) {
+    $middleware = new RoleMiddleware([Roles::ADMIN]);
+    if (!$middleware->handle()) {
+        return;
+    }
+    $data = $router->getJsonInput();
+    $result = $userController->create($data);
+    $router->sendJson($result, isset($result['error']) ? 400 : 201);
+});
+
 $router->put('/api/users/{id}', function($params) use ($router, $userController) {
     $middleware = new RoleMiddleware([Roles::ADMIN]);
     if (!$middleware->handle()) {
@@ -927,6 +937,15 @@ $router->get('/api/controles-qhse', function() use ($router, $qhseController) {
         return;
     }
     $result = $qhseController->indexControles($middleware->getUserId(), $middleware->getUserRole());
+    $router->sendJson($result, isset($result['error']) ? 400 : 200);
+});
+
+$router->get('/api/controles-qhse/locataire', function() use ($router, $qhseController) {
+    $middleware = new RoleMiddleware([Roles::LOCATAIRE]);
+    if (!$middleware->handle()) {
+        return;
+    }
+    $result = $qhseController->getLocataireControles($middleware->getUserId());
     $router->sendJson($result, isset($result['error']) ? 400 : 200);
 });
 

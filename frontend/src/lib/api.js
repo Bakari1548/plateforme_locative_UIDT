@@ -211,6 +211,7 @@ export const api = {
   // QHSE - Controles
   controlesQhse: {
     list: () => request('GET', '/controles-qhse'),
+    locataire: () => request('GET', '/controles-qhse/locataire'),
     pending: () => request('GET', '/controles-qhse/pending'),
     completed: () => request('GET', '/controles-qhse/completed'),
     stats: () => request('GET', '/controles-qhse/stats'),

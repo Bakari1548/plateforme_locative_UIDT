@@ -4,7 +4,7 @@ import { api, getCurrentUser } from '../lib/api'
 import {
   FileText, Building2, DollarSign, AlertTriangle,
   ShieldCheck, Gavel, TrendingUp, Clock,
-  ArrowRight, CheckSquare, Wrench, ShieldCheck as Shield
+  ArrowRight, CheckSquare, Wrench, ShieldCheck as Shield, Users, Plus
 } from 'lucide-react'
 import { DonutChart, HBarChart, BarChart, StatCard } from '../components/Charts'
 import { Link } from 'react-router-dom'
@@ -95,6 +95,7 @@ export default function Dashboard() {
   const isTechnicien = user.role === 'technicien'
   const isDirecteur = user.role === 'directeur'
   const isDCUV = user.role === 'dcuv'
+  const isAdmin = user.role === 'admin'
 
   return (
     <div>
@@ -117,28 +118,61 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Directeur - 2 cartes supplémentaires */}
+          {/* Directeur - 4 cartes sur une ligne */}
           {isDirecteur && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-              <div className="bg-white rounded-2xl shadow-sm p-6 flex items-center gap-4">
-                <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center">
-                  <CheckSquare className="h-6 w-6 text-primary-700" />
-                </div>
-                <div>
-                  <p className="text-sm text-accent-slate">Décisions prises</p>
-                  <p className="text-2xl font-extrabold text-accent-dark">{data.decisions_prises ?? 0}</p>
-                  <p className="text-xs text-accent-orange mt-0.5">{data.decisions_en_attente ?? 0} en attente</p>
-                </div>
-              </div>
-              <div className="bg-white rounded-2xl shadow-sm p-6 flex items-center gap-4">
-                <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center">
-                  <FileText className="h-6 w-6 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-accent-slate">Contrats signés</p>
-                  <p className="text-2xl font-extrabold text-accent-dark">{data.contrats_signes ?? 0}</p>
-                  <p className="text-xs text-accent-orange mt-0.5">{data.contrats_en_attente ?? 0} en attente</p>
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <StatCard icon={CheckSquare} label="Décisions prises" value={data.decisions_prises ?? 0} sublabel={`${data.decisions_en_attente ?? 0} en attente`} color="text-primary-700" />
+              <StatCard icon={FileText} label="Contrats signés" value={data.contrats_signes ?? 0} sublabel={`${data.contrats_en_attente ?? 0} en attente`} color="text-green-600" />
+              <StatCard icon={DollarSign} label="Paiements" value={`${data.paiements.total_montant || data.paiements.total_paiements || 0} FCFA`} sublabel={`${data.paiements.total_paiements || 0} paiements`} color="text-primary-700" />
+              <StatCard icon={DollarSign} label="Recettes du mois" value={`${data.total_recettes_mois ?? 0} FCFA`} color="text-secondary-600" />
+            </div>
+          )}
+
+          {/* Admin - 4 cartes sur une ligne + bouton ajouter local */}
+          {isAdmin && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <StatCard icon={Users} label="Total utilisateurs" value={data.total_users ?? 0} color="text-primary-700" />
+              <StatCard icon={Building2} label="Total locaux" value={data.total_locaux ?? 0} color="text-purple-600" />
+              <StatCard icon={FileText} label="Total demandes" value={data.demandes?.total ?? (Array.isArray(data.demandes) ? data.demandes.length : 0)} color="text-blue-600" />
+              <StatCard icon={DollarSign} label="Recettes du mois" value={`${data.total_recettes_mois ?? 0} FCFA`} color="text-secondary-600" />
+            </div>
+          )}
+
+          {/* Admin - Quick access */}
+          {isAdmin && (
+            <div className="mb-6">
+              <h2 className="text-sm font-bold text-accent-slate uppercase tracking-wide mb-3">Actions rapides</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Link to="/dcuv/locaux" className="group bg-white rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 p-5 flex items-center gap-4 border border-transparent hover:border-primary-200">
+                  <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-primary-50 group-hover:bg-primary-100 transition-colors flex items-center justify-center">
+                    <Plus className="h-6 w-6 text-primary-700" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-bold text-accent-dark">Ajouter un local</p>
+                    <p className="text-sm text-accent-slate">Créer un nouveau local</p>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-accent-light group-hover:text-primary-700 group-hover:translate-x-1 transition-all" />
+                </Link>
+                <Link to="/admin/users" className="group bg-white rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 p-5 flex items-center gap-4 border border-transparent hover:border-secondary-200">
+                  <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-secondary-50 group-hover:bg-secondary-100 transition-colors flex items-center justify-center">
+                    <Users className="h-6 w-6 text-secondary-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-bold text-accent-dark">Gérer les utilisateurs</p>
+                    <p className="text-sm text-accent-slate">Comptes et rôles</p>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-accent-light group-hover:text-secondary-600 group-hover:translate-x-1 transition-all" />
+                </Link>
+                <Link to="/dcuv/contrats" className="group bg-white rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 p-5 flex items-center gap-4 border border-transparent hover:border-green-200">
+                  <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-green-50 group-hover:bg-green-100 transition-colors flex items-center justify-center">
+                    <FileText className="h-6 w-6 text-green-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-bold text-accent-dark">Gérer les contrats</p>
+                    <p className="text-sm text-accent-slate">Contrats en cours</p>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-accent-light group-hover:text-green-600 group-hover:translate-x-1 transition-all" />
+                </Link>
               </div>
             </div>
           )}
@@ -154,13 +188,8 @@ export default function Dashboard() {
             {data.locaux && !Array.isArray(data.locaux) && (
               <StatCard icon={Building2} label="Locaux" value={data.locaux.total || 0} />
             )}
-            {data.paiements && !Array.isArray(data.paiements) && (
-              <div className="bg-white shadow-sm rounded-xl p-6">
-                <DollarSign className="h-8 w-8 text-primary-700 mb-2" />
-                <p className="text-sm text-accent-slate">Paiements</p>
-                <p className="text-2xl font-bold text-accent-dark">{data.paiements.total_montant || data.paiements.total_paiements || 0} FCFA</p>
-                <p className="text-sm text-accent-slate">{data.paiements.total_paiements || 0} paiements</p>
-              </div>
+            {data.paiements && !Array.isArray(data.paiements) && !isDirecteur && !isAdmin && (
+              <StatCard icon={DollarSign} label="Paiements" value={`${data.paiements.total_montant || data.paiements.total_paiements || 0} FCFA`} sublabel={`${data.paiements.total_paiements || 0} paiements`} color="text-primary-700" />
             )}
             {data.pending_demandes !== undefined && (
               <StatCard icon={Clock} label="Demandes en attente" value={data.pending_demandes} color="text-accent-orange" />
@@ -168,12 +197,8 @@ export default function Dashboard() {
             {data.pending_contrats !== undefined && (
               <StatCard icon={FileText} label="Contrats en attente" value={data.pending_contrats} />
             )}
-            {data.total_recettes_mois !== undefined && (
-              <div className="bg-white shadow-sm rounded-xl p-6 md:col-span-2">
-                <TrendingUp className="h-8 w-8 text-secondary-500 mb-2" />
-                <p className="text-sm text-accent-slate">Recettes du mois</p>
-                <p className="text-3xl font-bold text-secondary-600">{data.total_recettes_mois} FCFA</p>
-              </div>
+            {data.total_recettes_mois !== undefined && !isDirecteur && !isAdmin && (
+              <StatCard icon={TrendingUp} label="Recettes du mois" value={`${data.total_recettes_mois} FCFA`} color="text-secondary-600" />
             )}
             {data.total_this_month !== undefined && (
               <StatCard icon={DollarSign} label="Recettes ce mois" value={`${data.total_this_month} FCFA`} />
@@ -344,6 +369,25 @@ export default function Dashboard() {
                       <div key={c.id} className="flex justify-between items-center py-2 border-b border-accent-light last:border-0">
                         <span className="text-sm text-accent-dark">{c.reference}</span>
                         <span className="text-sm text-accent-slate">{c.statut}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {data.controles_qhse && Array.isArray(data.controles_qhse) && data.controles_qhse.length > 0 && (
+                <div className="bg-white shadow-sm rounded-xl p-6">
+                  <h3 className="text-lg font-bold text-accent-dark mb-3">Contrôles QHSE de mon local</h3>
+                  <div className="space-y-2">
+                    {data.controles_qhse.slice(0, 5).map((c) => (
+                      <div key={c.id} className="flex justify-between items-center py-2 border-b border-accent-light last:border-0">
+                        <div>
+                          <span className="text-sm text-accent-dark font-medium">{c.reference || `Contrôle #${c.id}`}</span>
+                          <span className="text-xs text-accent-slate ml-2">{c.local_reference || ''}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {c.score_global && <span className="text-xs font-bold text-accent-dark">{c.score_global}/100</span>}
+                          <span className="text-sm text-accent-slate">{STATUS_LABELS[c.statut] || c.statut}</span>
+                        </div>
                       </div>
                     ))}
                   </div>

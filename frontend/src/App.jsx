@@ -19,6 +19,7 @@ import ValidationDecisions from './pages/Directeur/ValidationDecisions'
 import EnregistrementPaiement from './pages/AgentRecouv/EnregistrementPaiement'
 import SignalementIncident from './pages/Locataire/SignalementIncident'
 import TransfertLocal from './pages/Locataire/TransfertLocal'
+import MesControlesQHSE from './pages/Locataire/MesControlesQHSE'
 import TechnicienBoard from './pages/Technicien/TableauBord'
 import ControleQHSE from './pages/DCUV/ControleQHSE'
 import SupervisionInterventions from './pages/DCUV/SupervisionInterventions'
@@ -82,6 +83,11 @@ function App() {
         <Route path="/transfert-local" element={
           <ProtectedRoute roles={['locataire']}>
             <AppLayout><TransfertLocal /></AppLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/mes-controles-qhse" element={
+          <ProtectedRoute roles={['locataire']}>
+            <AppLayout><MesControlesQHSE /></AppLayout>
           </ProtectedRoute>
         } />
 
@@ -156,7 +162,7 @@ function App() {
 
         {/* Courriers route */}
         <Route path="/courriers" element={
-          <ProtectedRoute roles={['agentCourrier', 'dcuv', 'admin', 'secretaireCSA']}>
+          <ProtectedRoute roles={['agentCourrier', 'dcuv', 'admin', 'secretaireCSA', 'directeur', 'locataire', 'technicien', 'agentRecouv']}>
             <AppLayout><GestionCourriers /></AppLayout>
           </ProtectedRoute>
         } />

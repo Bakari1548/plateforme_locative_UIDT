@@ -15,6 +15,12 @@ class Local extends Model
         return $result ?: null;
     }
 
+    public function generateReference(): string
+    {
+        $count = $this->count() + 1;
+        return sprintf('LOC-%03d', $count);
+    }
+
     public function findByType(string $type): array
     {
         $sql = "SELECT * FROM {$this->table} WHERE type = :type ORDER BY reference";

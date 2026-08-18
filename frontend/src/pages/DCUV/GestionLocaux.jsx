@@ -221,6 +221,13 @@ export default function GestionLocaux() {
             <option value="">Tous statuts</option>
             {STATUTS.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
+          <button
+            onClick={() => openModal()}
+            className="inline-flex items-center px-4 py-2 bg-primary-700 text-white rounded-lg hover:bg-primary-800 transition whitespace-nowrap"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Ajouter un local
+          </button>
         </div>
 
         {loading ? (
@@ -297,11 +304,13 @@ export default function GestionLocaux() {
               <button onClick={() => setShowModal(false)}><X className="h-5 w-5 text-accent-slate" /></button>
             </div>
             <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-accent-slate">Référence *</label>
-                <input type="text" required value={formData.reference} onChange={(e) => setFormData({...formData, reference: e.target.value})}
-                  className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 focus:outline-none focus:ring-primary-500" />
-              </div>
+              {editingLocal && (
+                <div>
+                  <label className="block text-sm font-semibold text-accent-slate">Référence</label>
+                  <input type="text" value={formData.reference} disabled
+                    className="mt-1 block w-full border border-accent-light rounded-lg px-3 py-2 bg-accent-lighter text-accent-slate" />
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-accent-slate">Type *</label>

@@ -4,16 +4,19 @@ namespace App\Controllers;
 
 use App\Models\ControleQHSE;
 use App\Models\Sanction;
+use App\Models\Contrat;
 
 class QHSEController
 {
     private ControleQHSE $controleModel;
     private Sanction $sanctionModel;
+    private Contrat $contratModel;
 
     public function __construct()
     {
         $this->controleModel = new ControleQHSE();
         $this->sanctionModel = new Sanction();
+        $this->contratModel = new Contrat();
     }
 
     // Controles QHSE
@@ -67,6 +70,18 @@ class QHSEController
             $controles = $this->controleModel->all();
         } else {
             $controles = $this->controleModel->findByControleurId($userId);
+        }
+        return ['success' => true, 'controles' => $controles, 'count' => count($controles)];
+    }
+
+    public function getLocataireControles(int $locataireId): array
+    {
+        $contrats = $this->contratModel->findByLocataireId($locataireId);
+        $controles = [];
+        foreach ($contrats as $contrat) {
+            if (!empty($contrat['local_id'])) {
+                $controles = array_merge($controles, $this->controleModel->findByLocalId((int)$contrat['local_id']));
+            }
         }
         return ['success' => true, 'controles' => $controles, 'count' => count($controles)];
     }

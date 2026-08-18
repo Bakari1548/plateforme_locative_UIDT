@@ -85,18 +85,26 @@ export default function GestionCourriers() {
 
         {error && <div className="mb-4 bg-red-50 border border-red-200 text-accent-red px-4 py-3 rounded-lg">{error}</div>}
 
-        <div className="mb-6 flex gap-2">
-          <button onClick={() => setTab('received')} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'received' ? 'bg-primary-700 text-white' : 'bg-white text-accent-slate border border-accent-light'}`}>
-            <ArrowDownLeft className="h-4 w-4 inline mr-1" /> Reçus
-          </button>
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex gap-2">
+            <button onClick={() => setTab('received')} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'received' ? 'bg-primary-700 text-white' : 'bg-white text-accent-slate border border-accent-light'}`}>
+              <ArrowDownLeft className="h-4 w-4 inline mr-1" /> Reçus
+            </button>
+            {canCreate && (
+              <button onClick={() => setTab('sent')} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'sent' ? 'bg-primary-700 text-white' : 'bg-white text-accent-slate border border-accent-light'}`}>
+                <ArrowUpRight className="h-4 w-4 inline mr-1" /> Envoyés
+              </button>
+            )}
+            <button onClick={() => setTab('all')} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'all' ? 'bg-primary-700 text-white' : 'bg-white text-accent-slate border border-accent-light'}`}>
+              Tous
+            </button>
+          </div>
           {canCreate && (
-            <button onClick={() => setTab('sent')} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'sent' ? 'bg-primary-700 text-white' : 'bg-white text-accent-slate border border-accent-light'}`}>
-              <ArrowUpRight className="h-4 w-4 inline mr-1" /> Envoyés
+            <button onClick={() => setShowModal(true)}
+              className="px-4 py-2 bg-primary-700 text-white text-sm rounded-lg hover:bg-primary-800 flex items-center gap-2">
+              <Plus className="h-4 w-4" /> Ajouter un courrier
             </button>
           )}
-          <button onClick={() => setTab('all')} className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'all' ? 'bg-primary-700 text-white' : 'bg-white text-accent-slate border border-accent-light'}`}>
-            Tous
-          </button>
         </div>
 
         {loading ? (
