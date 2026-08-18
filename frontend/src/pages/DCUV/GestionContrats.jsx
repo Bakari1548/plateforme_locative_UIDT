@@ -107,6 +107,12 @@ export default function GestionContrats() {
     setPdfContrat(null)
   }
 
+  async function openPdf(c) {
+    const result = await api.contrats.get(c.id)
+    if (result.error) { setError(result.error) }
+    else { setPdfContrat(result.contrat) }
+  }
+
   async function handleContratDecision(contratId, decision) {
     setActionLoading(true)
     setError('')
@@ -210,7 +216,7 @@ export default function GestionContrats() {
                       <Ban className="h-4 w-4" /> Résilier
                     </button>
                   )}
-                  <button onClick={() => setPdfContrat(c)}
+                  <button onClick={() => openPdf(c)}
                     className="px-3 py-1.5 text-accent-slate text-sm border border-accent-light rounded-lg hover:bg-accent-lighter flex items-center gap-1">
                     <Download className="h-4 w-4" /> PDF
                   </button>

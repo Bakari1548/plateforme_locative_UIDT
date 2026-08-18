@@ -21,6 +21,7 @@
     },
     "scripts": {
         "test": "phpunit",
+        "start": "php -S localhost:8000 -t backend/public",
         "migrate": "php backend/database/migrate.php"
     },
     "config": {

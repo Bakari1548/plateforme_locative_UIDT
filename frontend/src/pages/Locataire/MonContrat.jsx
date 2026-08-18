@@ -53,6 +53,12 @@ export default function MonContrat() {
     setPdfContrat(null)
   }
 
+  async function openPdf(c) {
+    const result = await api.contrats.get(c.id)
+    if (result.error) { setError(result.error) }
+    else { setPdfContrat(result.contrat) }
+  }
+
   return (
     <div>
       <h1 className="text-2xl font-extrabold text-accent-dark mb-1">Mon contrat</h1>
@@ -121,11 +127,11 @@ export default function MonContrat() {
                 )}
 
                 <div className="border-t pt-4 flex flex-wrap gap-2">
-                  <button onClick={() => setPdfContrat(c)}
+                  <button onClick={() => openPdf(c)}
                     className="inline-flex items-center gap-2 px-4 py-2 text-accent-slate text-sm border border-accent-light rounded-lg hover:bg-accent-lighter">
                     <Eye className="h-4 w-4" /> Voir le contrat
                   </button>
-                  <button onClick={() => setPdfContrat(c)}
+                  <button onClick={() => openPdf(c)}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-primary-700 text-white text-sm rounded-lg hover:bg-primary-800">
                     <Download className="h-4 w-4" /> Exporter PDF
                   </button>
