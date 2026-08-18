@@ -23,13 +23,18 @@ try {
         signe_par_locataire INTEGER DEFAULT 0,
         signe_par_dcuv INTEGER DEFAULT 0,
         fichier_pdf TEXT,
+        fichier_contrat TEXT,
+        commentaire_directeur TEXT,
+        valide_par_directeur_id INTEGER,
+        date_validation_directeur DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         
         FOREIGN KEY (demande_id) REFERENCES demandes(id),
         FOREIGN KEY (local_id) REFERENCES locaux(id),
         FOREIGN KEY (locataire_id) REFERENCES utilisateurs(id),
-        CHECK(statut IN ('brouillon', 'en_attente_signature', 'signe', 'actif', 'resilie', 'expire')),
+        FOREIGN KEY (valide_par_directeur_id) REFERENCES utilisateurs(id),
+        CHECK(statut IN ('brouillon', 'en_validation_directeur', 'en_attente_signature', 'signe', 'actif', 'resilie', 'expire')),
         CHECK(periodicite IN ('mensuel', 'trimestriel', 'annuel'))
     )";
     

@@ -433,7 +433,7 @@ try {
         'Infiltration d\'eau pendant la saison des pluies'
     ];
     $urgences = ['faible', 'normal', 'normal', 'urgent', 'critique'];
-    $statutsIncident = ['signale', 'en_attente', 'pris_en_charge', 'en_cours', 'resolu', 'cloture'];
+    $statutsIncident = ['signale', 'en_attente', 'planifie', 'en_cours', 'termine', 'cloture'];
 
     $incidentIds = [];
     $nbIncidents = min(15, count($contratIds) > 0 ? count($contratIds) + 5 : 10);
@@ -442,7 +442,7 @@ try {
         $localId = $localIds[array_rand($localIds)];
         $contratId = count($contratIds) > 0 && rand(0, 1) ? $contratIds[array_rand($contratIds)] : null;
         $statut = $statutsIncident[array_rand($statutsIncident)];
-        $technicienId = in_array($statut, ['pris_en_charge', 'en_cours', 'resolu', 'cloture']) ? $userIds['techniciens'][array_rand($userIds['techniciens'])] : null;
+        $technicienId = in_array($statut, ['planifie', 'en_cours', 'termine', 'cloture']) ? $userIds['techniciens'][array_rand($userIds['techniciens'])] : null;
 
         $insertIncident->execute([
             'ref' => 'INC-2026-' . str_pad((string) ($i + 1), 4, '0', STR_PAD_LEFT),
@@ -453,7 +453,7 @@ try {
             'description' => $descriptionsIncident[array_rand($descriptionsIncident)],
             'urgence' => $urgences[array_rand($urgences)],
             'statut' => $statut,
-            'prise_en_charge' => in_array($statut, ['pris_en_charge', 'en_cours', 'resolu', 'cloture']) ? 1 : 0,
+            'prise_en_charge' => in_array($statut, ['planifie', 'en_cours', 'termine', 'cloture']) ? 1 : 0,
             'date_signalement' => date('Y-m-d H:i:s', strtotime('-' . rand(1, 60) . ' days')),
             'technicien_id' => $technicienId
         ]);
@@ -461,7 +461,7 @@ try {
         $incidentIds[] = $incidentId;
 
         if ($technicienId !== null) {
-            $statutIntervention = $statut === 'en_cours' ? 'en_cours' : ($statut === 'resolu' || $statut === 'cloture' ? 'terminee' : 'planifiee');
+            $statutIntervention = $statut === 'en_cours' ? 'en_cours' : ($statut === 'termine' || $statut === 'cloture' ? 'terminee' : 'planifiee');
             $insertIntervention->execute([
                 'incident_id' => $incidentId,
                 'technicien_id' => $technicienId,

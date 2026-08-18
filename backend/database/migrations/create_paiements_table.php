@@ -22,7 +22,7 @@ try {
         FOREIGN KEY (locataire_id) REFERENCES utilisateurs(id),
         FOREIGN KEY (echeance_id) REFERENCES echeances(id),
         FOREIGN KEY (enregistre_par) REFERENCES utilisateurs(id),
-        CHECK(mode_paiement IN ('especes', 'cheque', 'virement'))
+        CHECK(mode_paiement IN ('especes', 'cheque', 'virement', 'mobile_money'))
     )";
     
     $db->exec($sql);
